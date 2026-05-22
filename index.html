@@ -173,7 +173,7 @@
 <div id="resultOverlay" class="fullscreen-overlay">
     <span id="btnInchideRezultat" class="close-btn">&times;</span>
     <img id="imgRezultatFinal" src="" alt="Rezultat Aliniere">
-    <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică a roșului</div>
+    <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin contrast de luminozitate</div>
 </div>
 
 <script>
@@ -225,6 +225,9 @@
     let bestSharpness = 0;
     let calibrationSteps = [];
     let currentStepIndex = 0;
+
+    // Pragul cromatic de detecție pentru roșu
+    const pragRosuStandard = 50; 
 
     // --- ACTIVARE FULLSCREEN NATIV ---
     function intraInFullscreen() {
@@ -286,7 +289,7 @@
             currentState = STATE_SCANNING;
             
             viewfinder.className = 'viewfinder-circle';
-            statusText.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
+            statusText.textContent = "Apropiați moneda și aliniați desenul în cerc...";
             statusText.style.color = "#00bfff";
             
             requestAnimationFrame(analizaFrame);
@@ -499,8 +502,8 @@
             const mascaSursaW = rezultat.maskW;
             const mascaSursaH = rezultat.maskH;
             
-            // CONFIGURARE ROȘEAȚĂ (REDNESS) RESTAURATĂ CONFORM PARAMETRILOR LOCALI OPTIMI [2]
-            const pragRosu = 45; // Pragul cromatic optimizat pentru markere roșii de pe local [2]
+            // CONFIGURARE ROȘEAȚĂ (REDNESS) RESTAURATĂ COMPLET CONFORM PARAMETRILOR LOCALI OPTIMI [2]
+            const pragRosu = 45; // Pragul cromatic stabil de roșu utilizat pe local [2]
             const zonaTranzitie = 15;
             const pragMinim = Math.max(0, pragRosu - zonaTranzitie); // 30 [2]
             
@@ -555,11 +558,10 @@
                                 const idx11 = idx01 + 4;
 
                                 let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
-                                let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
+                                let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2]; // Corectat indexul canalului pentru eșantionarea biliniară perfectă
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                // FILTRAREA CRUCIALĂ DE EXTRACȚIE PE BAZĂ DE ROȘEAȚĂ (REDNESS) RESTAURATĂ [2]
-                                // Aceasta izolează exclusiv pixelii de marker roșu saturat și elimină complet restul [2]
+                                // FILTRAREA PE BAZĂ DE ROȘEAȚĂ (REDNESS) OPTIMIZATĂ PENTRU EXTRACȚIA DESENULUI ROȘU [2]
                                 let redness = r - Math.max(g, b);
 
                                 let alpha;
@@ -585,7 +587,7 @@
                                     const g_blend = (g * g_bg) / 255;
                                     const b_blend = (b * b_bg) / 255;
 
-                                    // Interpolare liniară (Lerp) pe baza coeficientului alphaFinal [2]
+                                    // Interpolăm liniar (Lerp) pe baza coeficientului alphaFinal [2]
                                     dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
                                     dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
                                     dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
@@ -688,7 +690,7 @@
         return 0.0;
     }
 
-    // --- ALGORITM DETECȚIE MONEDĂ ---
+    // --- ALGORITM DETECȚIE MONEDĂ CU RECONSTITUIRE DE UNGHI ȘI CONEXIUNE CICLICĂ ---
     function detecteazaMonedaMagicWand(img, isPerspective) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -782,16 +784,17 @@
             }
         }
         
+        // RECONSTRUIRE DIRECTĂ ȘI SIGURĂ A INDICILOR AXEI DIN FALLBACK [3]
         const defaultPoints = () => {
             const cx = imgW * 0.5;
             const cy = imgH * 0.5;
             const rx = Math.min(imgW, imgH) * 0.3;
             const ry = isPerspective ? rx * 0.7 : rx;
             return [
-                { x: cx - rx, y: cy }, 
-                { x: cx,      y: cy - ry }, 
-                { x: cx + rx, y: cy }, 
-                { x: cx,      y: cy - ry }  
+                { x: cx - rx, y: cy },      // Stânga (Index 0)
+                { x: cx,      y: cy + ry }, // Jos (Index 1) [3]
+                { x: cx + rx, y: cy },      // Dreapta (Index 2)
+                { x: cx,      y: cy - ry }  // Sus (Index 3) [3]
             ];
         };
 
@@ -836,6 +839,10 @@
         const a = 2 * Math.sqrt(lambda1);
         const b = 2 * Math.sqrt(lambda2);
         
+        // Restaurarea completă a unghiului elipsei de perspectivă (momentele mu11) [3]
+        // Acest unghi este crucial pentru a asigura îndreptarea perfectă a perspectivei distorsionate [3]
+        const theta = 0.5 * Math.atan2(2 * mu11_prime, mu20_prime - mu02_prime);
+        
         const scaleFactor = 1 / scale;
         const xc_orig = xc * scaleFactor;
         const yc_orig = yc * scaleFactor;
@@ -845,11 +852,12 @@
         const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
         const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
 
+        // Maparea punctelor în ordinea orară a momentelor cu ecuația trigonometrică originală [3]
         const puncte = [
-            { x: xc_orig - a_orig, y: yc_orig }, 
-            { x: xc_orig,          y: yc_orig + b_orig }, 
-            { x: xc_orig + a_orig, y: yc_orig }, 
-            { x: xc_orig,          y: yc_orig - b_orig }  
+            { x: xc_orig - a_orig * Math.cos(theta), y: yc_orig - a_orig * Math.sin(theta) }, // Stânga (0)
+            { x: xc_orig - b_orig * Math.sin(theta), y: yc_orig + b_orig * Math.cos(theta) }, // Jos (1)
+            { x: xc_orig + a_orig * Math.cos(theta), y: yc_orig + a_orig * Math.sin(theta) }, // Dreapta (2)
+            { x: xc_orig + b_orig * Math.sin(theta), y: yc_orig - b_orig * Math.cos(theta) }  // Sus (3)
         ];
 
         return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };

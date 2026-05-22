@@ -226,6 +226,9 @@
     let calibrationSteps = [];
     let currentStepIndex = 0;
 
+    // Pragul cromatic de detecție pentru roșu
+    const pragRosuStandard = 50; 
+
     // --- ACTIVARE FULLSCREEN NATIV ---
     function intraInFullscreen() {
         const el = document.documentElement;
@@ -379,7 +382,6 @@
             const metrice = calculeazaClaritateCurenta(analysisCtx, size, size);
             
             if (currentState === STATE_SCANNING) {
-                // Dacă detectăm suficient contrast în centrul vizorului
                 if (metrice.ratio > 0.05) { 
                     currentState = STATE_CALIBRATING;
                     viewfinder.className = 'viewfinder-circle calibrating';
@@ -514,15 +516,12 @@
             outputCanvas.height = inaltimeDest;
             const outCtx = outputCanvas.getContext('2d');
             
-            // Desenăm moneda-front ca fundal [2]
+            // Desenăm moneda-front ca fundal în canvasul de destinație [2]
             outCtx.drawImage(imgCoalaGoala, 0, 0);
             
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = latimeDest;
-            tempCanvas.height = inaltimeDest;
-            const imgDataDesen = tempCtx.createImageData(latimeDest, inaltimeDest);
-            const outPixels = imgDataDesen.data;
+            // Citim pixelii de fundal ai monedei de referință
+            const dstImgData = outCtx.getImageData(0, 0, latimeDest, inaltimeDest);
+            const dstPixels = dstImgData.data;
             
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
             const dstPoints = puncteCoala.map(p => [p.x, p.y]);
@@ -539,7 +538,7 @@
                     const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie (fără nicio rotație)
+                        // Mapare directă prin homografie
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;
@@ -576,29 +575,33 @@
                                     alpha = 255 * (1 - ratio);
                                 }
 
-                                const alphaFinal = alpha * valMascaSursa * valMascaDest;
+                                const alphaFinal = (alpha / 255) * valMascaSursa * valMascaDest;
 
-                                outPixels[destIdx]     = r;
-                                outPixels[destIdx + 1] = g;
-                                outPixels[destIdx + 2] = b;
-                                outPixels[destIdx + 3] = alphaFinal;
-                            } else {
-                                outPixels[destIdx + 3] = 0;
+                                if (alphaFinal > 0.0) {
+                                    // Citim culoarea de fundal direct din moneda de referință [2]
+                                    const r_bg = dstPixels[destIdx];
+                                    const g_bg = dstPixels[destIdx + 1];
+                                    const b_bg = dstPixels[destIdx + 2];
+
+                                    // Efectuăm amestecarea Multiply manuală pe canale [2]
+                                    const r_blend = (r * r_bg) / 255;
+                                    const g_blend = (g * g_bg) / 255;
+                                    const b_blend = (b * b_bg) / 255;
+
+                                    // Interpolăm liniar (Lerp) pe baza coeficientului alphaFinal [2]
+                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
+                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
+                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+                                    // Canalul Alpha al imaginii de destinație rămâne neschimbat (255 - complet opac)
+                                }
                             }
-                        } else {
-                            outPixels[destIdx + 3] = 0;
                         }
-                    } else {
-                        outPixels[destIdx + 3] = 0;
                     }
                 }
             }
             
-            tempCtx.putImageData(imgDataDesen, 0, 0);
-            
-            // Blending Multiply pe moneda-front [2]
-            outCtx.globalCompositeOperation = 'multiply';
-            outCtx.drawImage(tempCanvas, 0, 0);
+            // Desenăm pixelii amestecați direct în canvasul de destinație
+            outCtx.putImageData(dstImgData, 0, 0);
             
             // Afișăm rezultatul
             imgRezultatFinal.src = outputCanvas.toDataURL('image/png');

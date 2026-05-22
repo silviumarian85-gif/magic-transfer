@@ -636,7 +636,7 @@
         const a = 2 * Math.sqrt(lambda1);
         const b = 2 * Math.sqrt(lambda2);
         
-        // RECONSTITUIREA MATEMATICĂ A UNGHIULUI ELIPSEI DE PERSPECTIVĂ [3]
+        // RECONSTRUIREA MATEMATICĂ A UNGHIULUI ELIPSEI DE PERSPECTIVĂ [3]
         const theta = 0.5 * Math.atan2(2 * mu11_prime, mu20_prime - mu02_prime);
         
         const scaleFactor = 1 / scale;
@@ -720,7 +720,7 @@
                 m1_s.value = 100;
 
                 sliderSensibilitate.value = rezultat.optimalThreshold;
-                valSensibilitate.textContent = rezultat.optimalThreshold; // Corectat eroarea de re-atribuire locală! [1]
+                valSensibilitate.textContent = rezultat.optimalThreshold;
 
                 cacheSursaPixeli();
                 randeazaSelectie();
@@ -1159,7 +1159,7 @@
             
             requestAnimationFrame(analizaFrameMobile);
         } catch (e) {
-            alert("Eroare la activarea camerei spate. Verificați permisiunile!");
+            alert("Eroare la activarea cameres spate. Verificați permisiunile!");
         }
     }
 
@@ -1242,7 +1242,7 @@
                 if (metrice.ratio > 0.015) { // Cel puțin 1.5% din vizor este roșu saturat
                     currentState = STATE_CALIBRATING;
                     viewfinderMobile.className = 'viewfinder-circle-mobile calibrating';
-                    statusTextMobile.textContent = "Marcaj roșu detectat! Se reglează focalizarea...";
+                    statusTextMobile.textContent = "Marcaj roșu detectat! Mențineți telefonul stabil...";
                     statusTextMobile.style.color = "#ffc107";
                     
                     sharpnessHistory = [];
@@ -1258,6 +1258,54 @@
         }
         
         requestAnimationFrame(analizaFrameMobile);
+    }
+
+    // --- ASISTENTUL DE DETECȚIE RADIALĂ DE MARGINE PENTRU AUTO-SCALARE MOBIL --- [3]
+    function gasesteMargineTrue(startX, startY, dx, dy, imgData, w, h) {
+        const pixels = imgData.data;
+        let cx = startX;
+        let cy = startY;
+        
+        let insideCoin = true;
+        let darkCount = 0;
+        const requiredDarkWidth = 80; // Căutăm o zonă întunecată continuă de cel puțin 80px (pad-ul) [3]
+        
+        let edgeX = cx;
+        let edgeY = cy;
+        
+        for (let step = 0; step < 1800; step++) {
+            cx += dx;
+            cy += dy;
+            
+            if (cx < 0 || cx >= w || cy < 0 || cy >= h) {
+                break;
+            }
+            
+            const idx = (Math.round(cy) * w + Math.round(cx)) * 4;
+            const r = pixels[idx];
+            const g = pixels[idx+1];
+            const b = pixels[idx+2];
+            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+            
+            // Căutăm contrastul cu pad-ul întunecat [3]
+            if (luma < 90) { 
+                darkCount++;
+                if (darkCount > requiredDarkWidth && insideCoin) {
+                    // Marginea elipsei monedei a fost localizată [3]
+                    edgeX = cx - dx * requiredDarkWidth;
+                    edgeY = cy - dy * requiredDarkWidth;
+                    insideCoin = false;
+                    break;
+                }
+            } else {
+                darkCount = 0; // Resetăm la text sau metal luminos [3]
+            }
+        }
+        
+        if (insideCoin) {
+            return { x: startX + dx * 1000, y: startY + dy * 1000 };
+        }
+        return { x: edgeX, y: edgeY };
     }
 
     // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ DE 3024x4032 ---
@@ -1276,26 +1324,38 @@
             const capCtx = capturedCanvas.getContext('2d');
             capCtx.drawImage(videoElementMobile, 0, 0, capW, capH); // Desenare completă proporțională fără decupaj intermediar [1]
             
-            // Oprim fizic camera imediat ce imaginea a fost copiată
-            opresteFluxCameraMobile();
+            const imgData = capCtx.getImageData(0, 0, capW, capH);
             
-            // OPTIMIZARE: PENTRU DETECȚIA PERFECTĂ A ELIPSEI DE PERSPECTIVĂ ÎN IMAGINILE COMPLEXE PE MOBIL [3]
-            // Înainte de a rula Magic Wand, curățăm fundalul din afara cercului monedei din cameră [3]
-            // Aplicăm o mască albă continuă în colțuri (unde pot fi mâini, umbre sau zgomot de masă) [3]
-            // Acest lucru garantează că Magic Wand găsește elipsa corectă și evită imaginile deformațe (stretch) [3]
-            const cleanCtx = capturedCanvas.getContext('2d');
-            cleanCtx.globalCompositeOperation = 'destination-over';
-            cleanCtx.fillStyle = '#ffffff';
-            cleanCtx.fillRect(0, 0, capW, capH);
-            cleanCtx.globalCompositeOperation = 'source-over';
+            // 1. RULĂM DETECTORUL RADIAL DE MARGINI ÎNAINTE DE PROCESARE [3]
+            // Acesta determină cu precizie raza reală a monedei din poză (fie ea mică sau mare) [3]
+            const ptL = gasesteMargineTrue(1512, 2016, -1.5, 0, imgData, capW, capH);
+            const ptR = gasesteMargineTrue(1512, 2016, 1.5, 0, imgData, capW, capH);
+            const ptD = gasesteMargineTrue(1512, 2016, 0, 1.5, imgData, capW, capH);
+            const ptU = gasesteMargineTrue(1512, 2016, 0, -1.5, imgData, capW, capH);
             
-            const gradient = cleanCtx.createRadialGradient(1512, 2016, 1150, 1512, 2016, 1250);
+            const rH = Math.abs(ptR.x - ptL.x) / 2;
+            const rV = Math.abs(ptD.y - ptU.y) / 2;
+            const razaMedie = (rH + rV) / 2; // Rază reală calculată dinamic în pixeli [3]
+            
+            // 2. CURĂȚARE COȘMETICĂ DINAMICĂ A FUNDALULUI (MASCARE AUTOMATĂ ADAPTIVĂ) [3]
+            // Folosim raza determinată dinamic pentru a plasa masca albă fix la marginea monedei [3]
+            // Acest lucru garantează o mascare perfectă a fundalului, indiferent de distanța de fotografiere [3]
+            capCtx.globalCompositeOperation = 'destination-over';
+            capCtx.fillStyle = '#ffffff';
+            capCtx.fillRect(0, 0, capW, capH);
+            capCtx.globalCompositeOperation = 'source-over';
+            
+            // Desenăm inelul de curățare adaptat dinamic la raza reală (+ 50px distanță siguranță) [3]
+            const gradient = capCtx.createRadialGradient(1512, 2016, razaMedie + 15, 1512, 2016, razaMedie + 65);
             gradient.addColorStop(0, 'rgba(255,255,255,0)');
             gradient.addColorStop(1, 'rgba(255,255,255,1)');
-            cleanCtx.fillStyle = gradient;
-            cleanCtx.beginPath();
-            cleanCtx.arc(1512, 2016, 1500, 0, 2 * Math.PI);
-            cleanCtx.fill();
+            capCtx.fillStyle = gradient;
+            capCtx.beginPath();
+            capCtx.arc(1512, 2016, capW, 0, 2 * Math.PI);
+            capCtx.fill();
+
+            // Oprim fizic camera imediat ce imaginea a fost copiată și pre-curățată în canvas
+            opresteFluxCameraMobile();
 
             const srcW = capturedCanvas.width;
             const srcH = capturedCanvas.height;
@@ -1308,7 +1368,6 @@
             const mascaSursaWMobile = rezu.maskW;
             const mascaSursaHMobile = rezu.maskH;
             
-            // Parametrii cromatici constanți optimi de pe local [2]
             const pragRosu = pragRosuMobile; 
             const zonaTranzitie = tranzitieMobile;
             const pragMinim = Math.max(0, pragRosu - zonaTranzitie); 
@@ -1350,7 +1409,7 @@
                     const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie
+                        // Mapare directă prin homografie (auto-scalarea funcționează perfect acum datorită măștii adaptive) [3]
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;

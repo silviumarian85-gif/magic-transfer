@@ -431,7 +431,7 @@
     let calibrationSteps = [];
     let currentStepIndex = 0;
 
-    // Prăguri cromatici constante pentru mobil (asigură potrivirea automată stabilă fără slider) [2]
+    // Prăguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
     const tranzitieMobile = 15;
@@ -488,7 +488,7 @@
         m2_s.addEventListener('input', aplicaAjustariM2);
     }
 
-    // --- DETECȚIE AUTOMATĂ MONEDĂ ---
+    // --- ALGORITM MAGIC WAND (FLOOD FILL) PENTRU DETECȚIE AUTOMATĂ ---
     function detecteazaMonedaMagicWand(img, isPerspective) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -645,11 +645,12 @@
         const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
         const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
 
+        // Forțăm unghiul elipsei la 0 grade [2].
         const puncte = [
-            { x: xc_orig - a_orig, y: yc_orig }, 
-            { x: xc_orig,          y: yc_orig + b_orig }, 
-            { x: xc_orig + a_orig, y: yc_orig }, 
-            { x: xc_orig,          y: yc_orig - b_orig }  
+            { x: xc_orig - a_orig, y: yc_orig }, // Stânga
+            { x: xc_orig,          y: yc_orig + b_orig }, // Jos
+            { x: xc_orig + a_orig, y: yc_orig }, // Dreapta
+            { x: xc_orig,          y: yc_orig - b_orig }  // Sus
         ];
 
         return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };
@@ -685,7 +686,7 @@
         cachedSrcPixels = tempCtx.getImageData(0, 0, cachedSrcW, cachedSrcH).data;
     }
 
-    // --- INCARCARE DESKTOP LOCAL ---
+    // --- PROCEDURA DE ÎNCĂRCARE LOCALĂ MONEDA 1 ---
     if (incarcaDesen) {
         incarcaDesen.addEventListener('change', (e) => {
             if (!e.target.files || !e.target.files[0]) return;
@@ -716,7 +717,7 @@
                 m1_s.value = 100;
 
                 sliderSensibilitate.value = rezultat.optimalThreshold;
-                valSensibilitate.textContent = rezultat.optimalThreshold;
+                valSensibilitate.textContent = rezultat.optimalThreshold; // Corectat eroarea de re-atribuire locală! [1]
 
                 cacheSursaPixeli();
                 randeazaSelectie();
@@ -800,6 +801,26 @@
         canvasSelectieCoala.height = dispH;
         ctxSel.drawImage(imgCoalaGoala, 0, 0, dispW, dispH);
         randeazaGeometrieElipsa(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
+    }
+
+    function randeazaGeometrieElipsa(ctxSel, puncte, img, dispW, dispH, culoare) {
+        if (puncte.length !== 4) return;
+
+        const dPts = puncte.map(p => ({
+            x: (p.x / img.naturalWidth) * dispW,
+            y: (p.y / img.naturalHeight) * dispH
+        }));
+        
+        const params = getEllipseParams(dPts);
+        
+        ctxSel.strokeStyle = culoare;
+        ctxSel.lineWidth = 3;
+        ctxSel.beginPath();
+        ctxSel.ellipse(params.cx, params.cy, params.rx, params.ry, params.rotation, 0, 2 * Math.PI);
+        ctxSel.stroke();
+        
+        ctxSel.fillStyle = culoare + '1a'; 
+        ctxSel.fill();
     }
 
     function actualizeazaInfoPuncte() {
@@ -888,7 +909,7 @@
         return 0.0;
     }
 
-    // --- PROCESUL DE TRANSFER DESKTOP ---
+    // --- PROCESUL DE TRANSFER DESKTOP REPARAT (MANUAL MULTIPLY) --- [1]
     if (butonTransfer) {
         butonTransfer.addEventListener('click', () => {
             if (!imgDesen || !imgCoalaGoala) {
@@ -900,107 +921,112 @@
             butonTransfer.disabled = true;
 
             setTimeout(() => {
-                const latime = imgCoalaGoala.naturalWidth;
-                const inaltime = imgCoalaGoala.naturalHeight;
+                try {
+                    const latime = imgCoalaGoala.naturalWidth || imgCoalaGoala.width || 600;
+                    const inaltime = imgCoalaGoala.naturalHeight || imgCoalaGoala.height || 600;
 
-                canvas.width = latime;
-                canvas.height = inaltime;
-                textInfoRezultat.style.display = 'none';
-                canvas.style.display = 'block';
+                    canvas.width = latime;
+                    canvas.height = inaltime;
+                    textInfoRezultat.style.display = 'none';
+                    canvas.style.display = 'block';
 
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.drawImage(imgCoalaGoala, 0, 0);
+                    // 1. Desenăm Moneda 2 de referință în fundal
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.drawImage(imgCoalaGoala, 0, 0);
 
-                const srcW = imgDesen.naturalWidth;
-                const srcH = imgDesen.naturalHeight;
-                const srcPixels = cachedSrcPixels; 
+                    // Citim pixelii de fundal ai monedei de referință (dstPixels) [1]
+                    const dstImgData = ctx.getImageData(0, 0, latime, inaltime);
+                    const dstPixels = dstImgData.data;
 
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = latime;
-                tempCanvas.height = inaltime;
+                    const srcW = imgDesen.naturalWidth;
+                    const srcH = imgDesen.naturalHeight;
+                    const srcPixels = cachedSrcPixels; 
 
-                const imgDataDesen = tempCtx.createImageData(latime, inaltime);
-                const outPixels = imgDataDesen.data;
+                    const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
+                    const dstPoints = puncteCoala.map(p => [p.x, p.y]);
 
-                const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-                const dstPoints = puncteCoala.map(p => [p.x, p.y]);
+                    // Homografie directă [1]
+                    const H = getHomographyMatrix(dstPoints, srcPoints);
+                    const h00 = H[0], h01 = H[1], h02 = H[2];
+                    const h10 = H[3], h11 = H[4], h12 = H[5];
+                    const h20 = H[6], h21 = H[7], h22 = H[8];
 
-                const H = getHomographyMatrix(dstPoints, srcPoints);
-                const h00 = H[0], h01 = H[1], h02 = H[2];
-                const h10 = H[3], h11 = H[4], h12 = H[5];
-                const h20 = H[6], h21 = H[7], h22 = H[8];
+                    const pragSensibilitate = parseInt(sliderSensibilitate.value);
+                    const pragRosu = Math.max(5, pragSensibilitate / 3);
+                    const zonaTranzitie = 15;
+                    const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
 
-                const pragSensibilitate = parseInt(sliderSensibilitate.value);
-                const pragRosu = Math.max(5, pragSensibilitate / 3);
-                const zonaTranzitie = 15;
-                const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
+                    for (let v = 0; v < inaltime; v++) {
+                        for (let u = 0; u < latime; u++) {
+                            const destIdx = (v * latime + u) * 4;
+                            const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latime, inaltime);
 
-                for (let v = 0; v < inaltime; v++) {
-                    for (let u = 0; u < latime; u++) {
-                        const destIdx = (v * latime + u) * 4;
-                        const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latime, inaltime);
+                            if (valMascaDest > 0.0) {
+                                const denom = h20 * u + h21 * v + 1.0;
+                                const sx = (h00 * u + h01 * v + h02) / denom;
+                                const sy = (h10 * u + h11 * v + h12) / denom;
 
-                        if (valMascaDest > 0.0) {
-                            const denom = h20 * u + h21 * v + 1.0;
-                            const sx = (h00 * u + h01 * v + h02) / denom;
-                            const sy = (h10 * u + h11 * v + h12) / denom;
+                                const x0 = Math.floor(sx);
+                                const y0 = Math.floor(sy);
 
-                            const x0 = Math.floor(sx);
-                            const y0 = Math.floor(sy);
+                                if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
+                                    const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
 
-                            if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                                const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
+                                    if (valMascaSursa > 0.0) {
+                                        const dx_s = sx - x0;
+                                        const dy_s = sy - y0;
 
-                                if (valMascaSursa > 0.0) {
-                                    const dx_s = sx - x0;
-                                    const dy_s = sy - y0;
+                                        const idx00 = (y0 * srcW + x0) * 4;
+                                        const idx10 = idx00 + 4;
+                                        const idx01 = idx00 + srcW * 4;
+                                        const idx11 = idx01 + 4;
 
-                                    const idx00 = (y0 * srcW + x0) * 4;
-                                    const idx10 = idx00 + 4;
-                                    const idx01 = idx00 + srcW * 4;
-                                    const idx11 = idx01 + 4;
+                                        let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
+                                        let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
+                                        let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                    let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
-                                    let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
-                                    let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
+                                        // Filtrare pe bază de roșeață (Redness) [2]
+                                        let redness = r - Math.max(g, b);
 
-                                    let redness = r - Math.max(g, b);
+                                        let alpha;
+                                        if (redness <= pragMinim) {
+                                            alpha = 0; 
+                                        } else if (redness >= pragRosu) {
+                                            alpha = 255; 
+                                        } else {
+                                            let ratio = (redness - pragMinim) / zonaTranzitie;
+                                            alpha = 255 * ratio;
+                                        }
 
-                                    let alpha;
-                                    if (redness <= pragMinim) {
-                                        alpha = 0; 
-                                    } else if (redness >= pragRosu) {
-                                        alpha = 255; 
-                                    } else {
-                                        let ratio = (redness - pragMinim) / zonaTranzitie;
-                                        alpha = 255 * ratio;
-                                    }
+                                        const alphaFinal = (alpha / 255) * valMascaSursa * valMascaDest;
 
-                                    const alphaFinal = (alpha / 255) * valMascaSursa * valMascaDest;
+                                        if (alphaFinal > 0.0) {
+                                            const r_bg = dstPixels[destIdx];
+                                            const g_bg = dstPixels[destIdx + 1];
+                                            const b_bg = dstPixels[destIdx + 2];
 
-                                    if (alphaFinal > 0.0) {
-                                        const r_bg = dstPixels[destIdx];
-                                        const g_bg = dstPixels[destIdx + 1];
-                                        const b_bg = dstPixels[destIdx + 2];
+                                            // Blending Multiply manual pe canale [1]
+                                            const r_blend = (r * r_bg) / 255;
+                                            const g_blend = (g * g_bg) / 255;
+                                            const b_blend = (b * b_bg) / 255;
 
-                                        const r_blend = (r * r_bg) / 255;
-                                        const g_blend = (g * g_bg) / 255;
-                                        const b_blend = (b * b_bg) / 255;
-
-                                        dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
-                                        dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
-                                        dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+                                            // Interpolare liniară (Lerp) [1]
+                                            dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
+                                            dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
+                                            dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                tempCtx.putImageData(imgDataDesen, 0, 0);
-                ctx.globalCompositeOperation = 'multiply';
-                ctx.drawImage(tempCanvas, 0, 0);
+                    // Re-scriem pixelii în canvas-ul de destinație [1]
+                    ctx.putImageData(dstImgData, 0, 0);
+                } catch (err) {
+                    console.error("Eroare transfer desktop:", err);
+                    alert("Eroare la procesarea imaginilor de pe PC. Verificați alinierea!");
+                }
 
                 butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul";
                 butonTransfer.disabled = false;
@@ -1049,7 +1075,6 @@
     // === SCRIPT ȘI LOGICĂ CAMERĂ AUTOMATĂ MOBIL ===
     // ==========================================
 
-    // Pornire ecran complet nativ la interacțiune
     function intraInFullscreenMobile() {
         const el = document.documentElement;
         if (el.requestFullscreen) {
@@ -1084,7 +1109,6 @@
         mascaDestHMobile = rezu.maskH;
     };
     imgCoalaGoalaMobile.onerror = () => {
-        // Fallback dacă moneda-front.jpg nu e găsită
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 600;
         tempCanvas.height = 600;
@@ -1225,7 +1249,7 @@
                         
                         setTimeout(executaPasCalibrareFocusMobile, 50);
                     } else {
-                        // Fallback iOS/Safari (autofocus continuu)
+                        // Fallback iOS/Safari
                         setTimeout(executaCapturaAutomataFallbackMobile, 1500);
                     }
                 }
@@ -1316,17 +1340,15 @@
             const srcH = capturedCanvas.height;
             const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
             
-            // Rulăm Magic Wand pe decupajul central pătrat al monedei
             const rezu = detecteazaMonedaMagicWand(capturedCanvas, true);
             const puncteSelectateMobile = rezu.puncte;
             const mascaSursaMobile = rezu.mask;
             const mascaSursaWMobile = rezu.maskW;
             const mascaSursaHMobile = rezu.maskH;
             
-            // Parametrii cromatici constanți optimi de pe local [2]
             const pragRosu = pragRosuMobile; 
             const zonaTranzitie = tranzitieMobile;
-            const pragMinim = Math.max(0, pragRosu - zonaTranzitie); // 30 [2]
+            const pragMinim = Math.max(0, pragRosu - zonaTranzitie); 
             
             const latimeDest = imgCoalaGoalaMobile.naturalWidth || imgCoalaGoalaMobile.width || 600;
             const inaltimeDest = imgCoalaGoalaMobile.naturalHeight || imgCoalaGoalaMobile.height || 600;
@@ -1357,7 +1379,6 @@
                     const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie (fără nicio rotație)
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;
@@ -1381,7 +1402,6 @@
                                 let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                // Filtrarea cromatică a desenului roșu (Redness) [2]
                                 let redness = r - Math.max(g, b);
 
                                 let alpha;
@@ -1397,17 +1417,14 @@
                                 const alphaFinal = (alpha / 255) * valMascaSursa * valMascaDest;
 
                                 if (alphaFinal > 0.0) {
-                                    // Citim culoarea de fundal direct din moneda de referință [2]
                                     const r_bg = dstPixels[destIdx];
                                     const g_bg = dstPixels[destIdx + 1];
                                     const b_bg = dstPixels[destIdx + 2];
 
-                                    // Amestecare manuală Multiply stabilă pe canale [2]
                                     const r_blend = (r * r_bg) / 255;
                                     const g_blend = (g * g_bg) / 255;
                                     const b_blend = (b * b_bg) / 255;
 
-                                    // Interpolare liniară (Lerp) [2]
                                     dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
                                     dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
                                     dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
@@ -1418,10 +1435,8 @@
                 }
             }
             
-            // Scriem pixelii amestecați în canvas-ul final
             outCtx.putImageData(dstImgData, 0, 0);
             
-            // Afișăm rezultatul
             imgRezultatFinalMobile.src = outputCanvas.toDataURL('image/png');
             resultOverlayMobile.style.display = 'flex';
         } catch (err) {

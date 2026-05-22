@@ -166,14 +166,14 @@
         <div class="hud-overlay">
             <div id="viewfinder" class="viewfinder-circle"></div>
         </div>
-        <div id="statusText" class="status-box">Apropiați moneda și aliniați desenul roșu în cerc...</div>
+        <div id="statusText" class="status-box">Apropiați moneda și aliniați desenul în cerc...</div>
     </div>
 </div>
 
 <div id="resultOverlay" class="fullscreen-overlay">
     <span id="btnInchideRezultat" class="close-btn">&times;</span>
     <img id="imgRezultatFinal" src="" alt="Rezultat Aliniere">
-    <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică</div>
+    <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin contrast de luminozitate</div>
 </div>
 
 <script>
@@ -225,9 +225,6 @@
     let bestSharpness = 0;
     let calibrationSteps = [];
     let currentStepIndex = 0;
-
-    // Pragul cromatic de detecție pentru roșu
-    const pragRosuStandard = 50; 
 
     // --- ACTIVARE FULLSCREEN NATIV ---
     function intraInFullscreen() {
@@ -289,7 +286,7 @@
             currentState = STATE_SCANNING;
             
             viewfinder.className = 'viewfinder-circle';
-            statusText.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
+            statusText.textContent = "Apropiați moneda și aliniați desenul în cerc...";
             statusText.style.color = "#00bfff";
             
             requestAnimationFrame(analizaFrame);
@@ -321,13 +318,13 @@
         pornesteCamera(); // Repornim camera de la zero
     });
 
-    // --- ALGORITM CLARITATE ROȘIE ---
-    function calculeazaClaritateRosie(ctx, w, h) {
+    // --- ALGORITM CLARITATE PRIN CONTRAST ---
+    function calculeazaClaritateCurenta(ctx, w, h) {
         const imgData = ctx.getImageData(0, 0, w, h);
         const pixels = imgData.data;
         
         let sumGrad = 0;
-        let countRed = 0;
+        let countDark = 0;
         
         for (let y = 2; y < h - 2; y += 2) {
             for (let x = 2; x < w - 2; x += 2) {
@@ -336,9 +333,11 @@
                 const g = pixels[idx+1];
                 const b = pixels[idx+2];
                 
-                // Filtru cromatic [2]
-                if (r > 130 && r - g > 65 && r - b > 65) {
-                    countRed++;
+                const luminozitate = 0.299 * r + 0.587 * g + 0.114 * b;
+                
+                // Căutăm pixeli mai închiși la culoare (detaliile gravurii) [2]
+                if (luminozitate < 130) {
+                    countDark++;
                     
                     const idxRight = idx + 4;
                     const idxDown = idx + w * 4;
@@ -346,8 +345,11 @@
                     const rRight = pixels[idxRight];
                     const rDown = pixels[idxDown];
                     
-                    const gradX = Math.abs(r - rRight);
-                    const gradY = Math.abs(r - rDown);
+                    const lRight = 0.299 * rRight + 0.587 * pixels[idxRight+1] + 0.114 * pixels[idxRight+2];
+                    const lDown = 0.299 * rDown + 0.587 * pixels[idxDown+1] + 0.114 * pixels[idxDown+2];
+                    
+                    const gradX = Math.abs(luminozitate - lRight);
+                    const gradY = Math.abs(luminozitate - lDown);
                     
                     sumGrad += (gradX + gradY);
                 }
@@ -356,8 +358,8 @@
         
         const totalPixelsAnalyzed = (w * h) / 4;
         return {
-            ratio: countRed / totalPixelsAnalyzed,
-            sharpness: countRed > 0 ? (sumGrad / countRed) : 0
+            ratio: countDark / totalPixelsAnalyzed,
+            sharpness: countDark > 0 ? (sumGrad / countDark) : 0
         };
     }
 
@@ -374,13 +376,14 @@
             const sy = (videoElement.videoHeight - size) / 2;
             analysisCtx.drawImage(videoElement, sx, sy, size, size, 0, 0, size, size);
             
-            const metrice = calculeazaClaritateRosie(analysisCtx, size, size);
+            const metrice = calculeazaClaritateCurenta(analysisCtx, size, size);
             
             if (currentState === STATE_SCANNING) {
-                if (metrice.ratio > 0.015) { // Cel puțin 1.5% din cadru conține roșu
+                // Dacă detectăm suficient contrast în centrul vizorului
+                if (metrice.ratio > 0.05) { 
                     currentState = STATE_CALIBRATING;
                     viewfinder.className = 'viewfinder-circle calibrating';
-                    statusText.textContent = "Marcaj detectat! Se reglează focalizarea...";
+                    statusText.textContent = "Monedă detectată! Se reglează focalizarea...";
                     statusText.style.color = "#ffc107";
                     
                     sharpnessHistory = [];
@@ -398,7 +401,7 @@
                         
                         setTimeout(executaPasCalibrareFocus, 50);
                     } else {
-                        // Fallback iOS/Safari (autofocus hardware)
+                        // Fallback iOS/Safari
                         setTimeout(executaCapturaAutomataFallback, 1500);
                     }
                 }
@@ -435,7 +438,7 @@
                 const sy = (videoElement.videoHeight - size) / 2;
                 analysisCtx.drawImage(videoElement, sx, sy, size, size, 0, 0, size, size);
                 
-                const metrice = calculeazaClaritateRosie(analysisCtx, size, size);
+                const metrice = calculeazaClaritateCurenta(analysisCtx, size, size);
                 
                 if (metrice.sharpness > bestSharpness) {
                     bestSharpness = metrice.sharpness;
@@ -469,27 +472,39 @@
         try {
             currentState = STATE_CAPTURING;
             statusText.textContent = "Focalizat! Se procesează desenul...";
-            statusText.style.color = "#39ff14"; // Verde neon cu vizibilitate înaltă
+            statusText.style.color = "#39ff14"; // Verde neon
             
+            // Decupăm exact zona centrală pătrată din fluxul video (HUD viewfinder) pentru o precizie maximă [3]
+            // Acest lucru garantează eliminarea oricărui fundal aglomerat sau umbre parazite de pe margini [3]
+            const capSize = 600; 
             const capturedCanvas = document.createElement('canvas');
-            capturedCanvas.width = videoElement.videoWidth;
-            capturedCanvas.height = videoElement.videoHeight;
+            capturedCanvas.width = capSize;
+            capturedCanvas.height = capSize;
             const capCtx = capturedCanvas.getContext('2d');
-            capCtx.drawImage(videoElement, 0, 0);
             
-            // Oprim fizic camera imediat ce imaginea a fost capturată în memorie
+            const videoSize = Math.min(videoElement.videoWidth, videoElement.videoHeight);
+            const sx = (videoElement.videoWidth - videoSize) / 2;
+            const sy = (videoElement.videoHeight - videoSize) / 2;
+            capCtx.drawImage(videoElement, sx, sy, videoSize, videoSize, 0, 0, capSize, capSize);
+            
+            // Oprim fizic camera imediat ce pixelii au fost copiați în memorie
             opresteCamera();
             
             const srcW = capturedCanvas.width;
             const srcH = capturedCanvas.height;
             const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
             
-            // Rulăm Magic Wand pe cadrul capturat pentru a izola geometria monedei 1
+            // Rulăm Magic Wand pe decupajul pătrat curat centrat pe monedă
             const rezultat = detecteazaMonedaMagicWand(capturedCanvas, true);
             const puncteSelectate = rezultat.puncte;
             const mascaSursa = rezultat.mask;
             const mascaSursaW = rezultat.maskW;
             const mascaSursaH = rezultat.maskH;
+            
+            // Parametrii cromatici din codul original (pe baza luminozității dinamice calculate) [2]
+            const pragTaiereAlb = rezultat.optimalThreshold || 150; // Valoare adaptivă determinată dinamic
+            const zonaTranzitie = 30; // Valoarea originală de tranziție de pe local
+            const pragMinim = Math.max(0, pragTaiereAlb - zonaTranzitie);
             
             const latimeDest = imgCoalaGoala.naturalWidth || imgCoalaGoala.width || 600;
             const inaltimeDest = imgCoalaGoala.naturalHeight || imgCoalaGoala.height || 600;
@@ -499,7 +514,7 @@
             outputCanvas.height = inaltimeDest;
             const outCtx = outputCanvas.getContext('2d');
             
-            // Desenăm moneda de referință 2 ca fundal [2]
+            // Desenăm moneda-front ca fundal [2]
             outCtx.drawImage(imgCoalaGoala, 0, 0);
             
             const tempCanvas = document.createElement('canvas');
@@ -516,11 +531,6 @@
             const h00 = H[0], h01 = H[1], h02 = H[2];
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
-            
-            // Filtrare cromatică a desenului roșu [2]
-            const pragRosu = pragRosuStandard;
-            const zonaTranzitie = 15;
-            const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
             
             for (let v = 0; v < inaltimeDest; v++) {
                 for (let u = 0; u < latimeDest; u++) {
@@ -553,18 +563,17 @@
                                 let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                // Izolăm exclusiv pixelii de culoare roșie (Redness) [2]
-                                let redness = r - Math.max(g, b);
+                                // Revenire la formula de procesare bazată pe luminozitate (Filtru original) [2]
+                                let luminozitate = 0.299 * r + 0.587 * g + 0.114 * b;
 
                                 let alpha;
-                                if (redness <= pragMinim) {
+                                if (luminozitate >= pragTaiereAlb) {
                                     alpha = 0; 
-                                    alpha = 0; 
-                                } else if (redness >= pragRosu) {
+                                } else if (luminozitate <= pragMinim) {
                                     alpha = 255; 
                                 } else {
-                                    let ratio = (redness - pragMinim) / zonaTranzitie;
-                                    alpha = 255 * ratio;
+                                    let ratio = (luminozitate - pragMinim) / zonaTranzitie;
+                                    alpha = 255 * (1 - ratio);
                                 }
 
                                 const alphaFinal = alpha * valMascaSursa * valMascaDest;
@@ -596,7 +605,6 @@
             resultOverlay.style.display = 'flex';
         } catch (err) {
             console.error("Eroare procesare:", err);
-            // În caz de eroare la unghiul ascuțit sau încadrare, repornim automat camera
             currentState = STATE_SCANNING;
             viewfinder.className = 'viewfinder-circle';
             statusText.textContent = "Eroare detecție. Reîncercați încadrarea monedei...";
@@ -686,7 +694,6 @@
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Citim dinamic dimensiunile elementului (Img sau Canvas) pentru a preveni erorile de tip NaN
         const imgW = img.naturalWidth || img.width || 600;
         const imgH = img.naturalHeight || img.height || 600;
         

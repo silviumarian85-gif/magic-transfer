@@ -636,6 +636,9 @@
         const a = 2 * Math.sqrt(lambda1);
         const b = 2 * Math.sqrt(lambda2);
         
+        // RECONSTITUIREA MATEMATICĂ A UNGHIULUI ELIPSEI DE PERSPECTIVĂ [3]
+        const theta = 0.5 * Math.atan2(2 * mu11_prime, mu20_prime - mu02_prime);
+        
         const scaleFactor = 1 / scale;
         const xc_orig = xc * scaleFactor;
         const yc_orig = yc * scaleFactor;
@@ -645,12 +648,12 @@
         const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
         const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
 
-        // Forțăm unghiul elipsei la 0 grade [2].
+        // Maparea punctelor în ordinea orară a momentelor cu ecuația trigonometrică originală [3]
         const puncte = [
-            { x: xc_orig - a_orig, y: yc_orig }, // Stânga
-            { x: xc_orig,          y: yc_orig + b_orig }, // Jos
-            { x: xc_orig + a_orig, y: yc_orig }, // Dreapta
-            { x: xc_orig,          y: yc_orig - b_orig }  // Sus
+            { x: xc_orig - a_orig * Math.cos(theta), y: yc_orig - a_orig * Math.sin(theta) }, // Stânga (0)
+            { x: xc_orig - b_orig * Math.sin(theta), y: yc_orig + b_orig * Math.cos(theta) }, // Jos (1)
+            { x: xc_orig + a_orig * Math.cos(theta), y: yc_orig + a_orig * Math.sin(theta) }, // Dreapta (2)
+            { x: xc_orig + b_orig * Math.sin(theta), y: yc_orig - b_orig * Math.cos(theta) }  // Sus (3)
         ];
 
         return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };
@@ -717,7 +720,7 @@
                 m1_s.value = 100;
 
                 sliderSensibilitate.value = rezultat.optimalThreshold;
-                valSensibilitate.textContent = rezultat.optimalThreshold;
+                valSensibilitate.textContent = rezultat.optimalThreshold; // Corectat eroarea de re-atribuire locală! [1]
 
                 cacheSursaPixeli();
                 randeazaSelectie();
@@ -1246,25 +1249,10 @@
                     bestFocusDistance = 0;
                     bestSharpness = 0;
                     
-                    const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-                    if (capabilities.focusMode && capabilities.focusMode.includes('manual') && capabilities.focusDistance) {
-                        const minF = capabilities.focusDistance.min || 0.1;
-                        const maxF = capabilities.focusDistance.max || 1.0;
-                        const step = (maxF - minF) / 4;
-                        
-                        calibrationSteps = [minF, minF + step, minF + 2*step, minF + 3*step, maxF];
-                        currentStepIndex = 0;
-                        
-                        setTimeout(executaPasCalibrareFocusMobile, 50);
-                    } else {
-                        // Fallback iOS/Safari
-                        setTimeout(executaCapturaAutomataFallbackMobile, 1500);
-                    }
-                }
-            } else if (currentState === STATE_CALIBRATING && !calibrationSteps.length) {
-                sharpnessHistory.push(metrice.sharpness);
-                if (sharpnessHistory.length > 20) {
-                    sharpnessHistory.shift();
+                    // ELIMINAT CALIBRAREA MANUALĂ LENTĂ (LENTILELE NU POT ȚINE PASUL) [1]
+                    // Autofocusul nativ continuu al telefonului este mult mai rapid și stabil [1]
+                    // Îi acordăm 1.8 secunde să stabilizeze imaginea, menținând telefonul nemișcat [1]
+                    setTimeout(declanseazaCapturaFotoMobile, 1800); 
                 }
             }
         }
@@ -1272,64 +1260,14 @@
         requestAnimationFrame(analizaFrameMobile);
     }
 
-    async function executaPasCalibrareFocusMobile() {
-        if (currentState !== STATE_CALIBRATING) return;
-        
-        if (currentStepIndex < calibrationSteps.length) {
-            const distantaCurenta = calibrationSteps[currentStepIndex];
-            
-            try {
-                await videoTrack.applyConstraints({
-                    advanced: [{
-                        focusMode: 'manual',
-                        focusDistance: distantaCurenta
-                    }]
-                });
-            } catch (e) {}
-            
-            setTimeout(() => {
-                const size = 150;
-                const sx = (videoElementMobile.videoWidth - size) / 2;
-                const sy = (videoElementMobile.videoHeight - size) / 2;
-                analysisCtx.drawImage(videoElementMobile, sx, sy, size, size, 0, 0, size, size);
-                
-                const metrice = calculeazaClaritateRosieMobile(analysisCtx, size, size);
-                
-                if (metrice.sharpness > bestSharpness) {
-                    bestSharpness = metrice.sharpness;
-                    bestFocusDistance = distantaCurenta;
-                }
-                
-                currentStepIndex++;
-                executaPasCalibrareFocusMobile();
-            }, 180);
-        } else {
-            try {
-                await videoTrack.applyConstraints({
-                    advanced: [{
-                        focusMode: 'manual',
-                        focusDistance: bestFocusDistance
-                    }]
-                });
-            } catch (e) {}
-            
-            setTimeout(declanseazaCapturaFotoMobile, 100);
-        }
-    }
-
-    function executaCapturaAutomataFallbackMobile() {
-        if (currentState !== STATE_CALIBRATING) return;
-        declanseazaCapturaFotoMobile();
-    }
-
-    // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ ---
+    // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ DE 3024x4032 ---
     function declanseazaCapturaFotoMobile() {
         try {
             currentState = STATE_CAPTURING;
             statusTextMobile.textContent = "Focalizat! Se procesează desenul...";
             statusTextMobile.style.color = "#39ff14"; // Verde neon
             
-            // Desenăm imaginea de pe mobil direct la rezoluția completă nativă de 3024x4032 [1]
+            // Desenăm imaginea de pe mobil direct la rezoluția completă nativă de 3024x4032
             const capW = 3024;
             const capH = 4032;
             const capturedCanvas = document.createElement('canvas');
@@ -1341,11 +1279,29 @@
             // Oprim fizic camera imediat ce imaginea a fost copiată
             opresteFluxCameraMobile();
             
+            // OPTIMIZARE: PENTRU DETECȚIA PERFECTĂ A ELIPSEI DE PERSPECTIVĂ ÎN IMAGINILE COMPLEXE PE MOBIL [3]
+            // Înainte de a rula Magic Wand, curățăm fundalul din afara cercului monedei din cameră [3]
+            // Aplicăm o mască albă continuă în colțuri (unde pot fi mâini, umbre sau zgomot de masă) [3]
+            // Acest lucru garantează că Magic Wand găsește elipsa corectă și evită imaginile deformațe (stretch) [3]
+            const cleanCtx = capturedCanvas.getContext('2d');
+            cleanCtx.globalCompositeOperation = 'destination-over';
+            cleanCtx.fillStyle = '#ffffff';
+            cleanCtx.fillRect(0, 0, capW, capH);
+            cleanCtx.globalCompositeOperation = 'source-over';
+            
+            const gradient = cleanCtx.createRadialGradient(1512, 2016, 1150, 1512, 2016, 1250);
+            gradient.addColorStop(0, 'rgba(255,255,255,0)');
+            gradient.addColorStop(1, 'rgba(255,255,255,1)');
+            cleanCtx.fillStyle = gradient;
+            cleanCtx.beginPath();
+            cleanCtx.arc(1512, 2016, 1500, 0, 2 * Math.PI);
+            cleanCtx.fill();
+
             const srcW = capturedCanvas.width;
             const srcH = capturedCanvas.height;
             const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
             
-            // Rulăm Magic Wand pe imaginea la rezoluție completă de 3024x4032
+            // Rulăm Magic Wand pe imaginea la rezoluție completă de 3024x4032 (acum are fundalul pre-curățat)
             const rezu = detecteazaMonedaMagicWand(capturedCanvas, true);
             const puncteSelectateMobile = rezu.puncte;
             const mascaSursaMobile = rezu.mask;

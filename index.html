@@ -2,12 +2,12 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Scaner Monede - Detecție & Aliniere Automată</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #11141a; 
+            background: #0f111a; 
             color: #e2e8f0; 
             margin: 0; 
             padding: 0; 
@@ -24,7 +24,6 @@
             width: 100%; 
             height: 100%; 
             display: flex; 
-            flex-direction: column; 
             align-items: center; 
             justify-content: center; 
         }
@@ -32,7 +31,7 @@
         .btn-start { 
             background: #28a745; 
             color: white; 
-            padding: 16px 40px; 
+            padding: 18px 45px; 
             border-radius: 30px; 
             cursor: pointer; 
             font-weight: bold; 
@@ -44,17 +43,18 @@
         }
         .btn-start:hover { 
             background: #218838; 
-            transform: scale(1.05);
+            transform: scale(1.03);
         }
 
         .camera-container {
             display: none;
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: black;
+            z-index: 5;
         }
 
         #videoElement {
@@ -63,15 +63,13 @@
             object-fit: cover;
         }
 
-        /* Viewfinder HUD SF */
+        /* Viewfinder HUD */
         .hud-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            box-sizing: border-box;
-            border: 40px solid rgba(0,0,0,0.5);
             pointer-events: none;
             display: flex;
             flex-direction: column;
@@ -85,7 +83,7 @@
             border: 3px dashed rgba(255, 7, 58, 0.6);
             border-radius: 50%;
             position: relative;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.2);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
             transition: border-color 0.3s;
         }
 
@@ -96,26 +94,26 @@
 
         @keyframes pulse {
             from { transform: scale(1); }
-            to { transform: scale(1.03); }
+            to { transform: scale(1.04); }
         }
 
         .status-box {
             position: absolute;
-            bottom: 30px;
+            bottom: calc(30px + env(safe-area-inset-bottom));
             background: rgba(0,0,0,0.85);
             padding: 12px 24px;
             border-radius: 20px;
             font-size: 14px;
             font-weight: 600;
-            letter-spacing: 0.5px;
             border: 1px solid #2d3748;
             pointer-events: none;
             color: #00bfff;
             text-align: center;
             max-width: 80%;
+            z-index: 10;
         }
 
-        /* Overlay rezultat final pe tot ecranul */
+        /* Overlay rezultat pe tot ecranul */
         .fullscreen-overlay { 
             display: none; 
             position: fixed; 
@@ -141,14 +139,15 @@
 
         .close-btn { 
             position: absolute; 
-            top: 25px; 
-            right: 35px; 
+            top: calc(20px + env(safe-area-inset-top)); 
+            right: 30px; 
             color: #cbd5e0; 
             font-size: 44px; 
             cursor: pointer; 
             font-weight: bold; 
             transition: 0.2s;
             user-select: none;
+            z-index: 1000;
         }
         .close-btn:hover {
             color: white;
@@ -173,7 +172,7 @@
 <div id="resultOverlay" class="fullscreen-overlay">
     <span id="btnInchideRezultat" class="close-btn">&times;</span>
     <img id="imgRezultatFinal" src="" alt="Rezultat Aliniere">
-    <div style="margin-top: 15px; font-size: 15px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică</div>
+    <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică</div>
 </div>
 
 <script>
@@ -197,7 +196,15 @@
     let mascaDestW = 0;
     let mascaDestH = 0;
 
-    // Cache-uri pentru cadre
+    let cachedSrcPixels = null;
+    let cachedSrcW = 0;
+    let cachedSrcH = 0;
+
+    let mascaSursa = null;
+    let mascaSursaW = 0;
+    let mascaSursaH = 0;
+
+    // Canvas de analiză a cadrelor în timp real
     let analysisCanvas = document.createElement('canvas');
     let analysisCtx = analysisCanvas.getContext('2d');
 
@@ -213,13 +220,26 @@
     let calibrationSteps = [];
     let currentStepIndex = 0;
 
-    // Saturație implicită pentru desenul roșu
+    // Pragul cromatic de detecție pentru roșu
     const pragRosuStandard = 50; 
 
-    // --- ÎNCĂRCARE REZISTENTĂ MONEDA-FRONT.JPG ---
+    // --- ACTIVARE FULLSCREEN NATIV ---
+    function intraInFullscreen() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) { /* Safari / iOS */
+            el.webkitRequestFullscreen();
+        } else if (el.mozRequestFullScreen) {
+            el.mozRequestFullScreen();
+        } else if (el.msRequestFullscreen) {
+            el.msRequestFullscreen();
+        }
+    }
+
+    // --- ÎNCĂRCARE MONEDA-FRONT.JPG ---
     imgCoalaGoala.crossOrigin = "anonymous";
     imgCoalaGoala.onload = () => {
-        // Rulăm Magic Wand pe moneda-front pentru a determina masca de referință
         const rezultat = detecteazaMonedaMagicWand(imgCoalaGoala, false);
         puncteCoala = rezultat.puncte;
         mascaDest = rezultat.mask;
@@ -227,7 +247,7 @@
         mascaDestH = rezultat.maskH;
     };
     imgCoalaGoala.onerror = () => {
-        // Siguranță defensivă: dacă fișierul moneda-front.jpg lipsește pe server, generăm o formă gri
+        // Generare textură standard dacă moneda-front.jpg lipsește la rularea locală
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 600;
         tempCanvas.height = 600;
@@ -242,12 +262,15 @@
     };
     imgCoalaGoala.src = "moneda-front.jpg";
 
-    // --- PORNIRE CAMERĂ SPATE ---
+    // --- PORNIRE CAMERĂ & FULLSCREEN ---
     btnPorneste.addEventListener('click', async () => {
         try {
+            // Activăm modul ecran complet la click
+            intraInFullscreen();
+
             stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: 'environment', // Obligă utilizarea camerei spate
+                    facingMode: 'environment', // Cameră spate
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 }
@@ -262,11 +285,11 @@
             
             requestAnimationFrame(analizaFrame);
         } catch (e) {
-            alert("Eroare la accesarea camerei din spate. Verificați permisiunile!");
+            alert("Eroare la pornirea camerei. Permiteți accesul la cameră și fullscreen!");
         }
     });
 
-    // --- INCHIDERE REZULTAT & RESTART ---
+    // --- ÎNCHIDERE REZULTAT & RESTART FLUX ---
     btnInchideRezultat.addEventListener('click', () => {
         resultOverlay.style.display = 'none';
         imgRezultatFinal.src = '';
@@ -274,9 +297,10 @@
         viewfinder.className = 'viewfinder-circle';
         statusText.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
         statusText.style.color = "#00bfff";
+        videoElement.play(); // Repornim camera fără a re-solicita permisiuni
     });
 
-    // --- ALGORITM REAL-TIME DE ANALIZĂ A ROȘULUI ȘI CLARITĂȚII ---
+    // --- ALGORITM CLARITATE ROȘIE ---
     function calculeazaClaritateRosie(ctx, w, h) {
         const imgData = ctx.getImageData(0, 0, w, h);
         const pixels = imgData.data;
@@ -284,7 +308,6 @@
         let sumGrad = 0;
         let countRed = 0;
         
-        // Scanăm redus pentru performanță sporită de procesare
         for (let y = 2; y < h - 2; y += 2) {
             for (let x = 2; x < w - 2; x += 2) {
                 const idx = (y * w + x) * 4;
@@ -292,11 +315,10 @@
                 const g = pixels[idx+1];
                 const b = pixels[idx+2];
                 
-                // Izolare cromatică a roșului saturat [2]
+                // Filtru cromatic [2]
                 if (r > 130 && r - g > 65 && r - b > 65) {
                     countRed++;
                     
-                    // Calculăm variația locală a pixelilor roșii învecinați (măsură de focus/claritate)
                     const idxRight = idx + 4;
                     const idxDown = idx + w * 4;
                     
@@ -318,7 +340,7 @@
         };
     }
 
-    // --- LOOP SCANARE ȘI DECIZIE FOCALIZARE ---
+    // --- LOOP FRAME ANALIZĂ ---
     async function analizaFrame() {
         if (!isScanning || currentState === STATE_CAPTURING) return;
 
@@ -327,16 +349,14 @@
             analysisCanvas.width = size;
             analysisCanvas.height = size;
             
-            // Desenăm doar regiunea centrală a vederii (viewfinder-ul) pentru analiză cromatică
             const sx = (videoElement.videoWidth - size) / 2;
             const sy = (videoElement.videoHeight - size) / 2;
             analysisCtx.drawImage(videoElement, sx, sy, size, size, 0, 0, size, size);
             
             const metrice = calculeazaClaritateRosie(analysisCtx, size, size);
             
-            // 1. Starea SCANNING: Căutăm prezența desenului roșu în cercul viewfinder-ului
             if (currentState === STATE_SCANNING) {
-                if (metrice.ratio > 0.015) { // Cel puțin 1.5% din cadru este roșu saturat
+                if (metrice.ratio > 0.015) { // Cel puțin 1.5% din cadru conține roșu
                     currentState = STATE_CALIBRATING;
                     viewfinder.className = 'viewfinder-circle calibrating';
                     statusText.textContent = "Marcaj detectat! Se reglează focalizarea...";
@@ -346,7 +366,6 @@
                     bestFocusDistance = 0;
                     bestSharpness = 0;
                     
-                    // Inițiem calibrarea de focalizare hardware dacă dispozitivul suportă focusMode manual
                     const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
                     if (capabilities.focusMode && capabilities.focusMode.includes('manual') && capabilities.focusDistance) {
                         const minF = capabilities.focusDistance.min || 0.1;
@@ -358,13 +377,11 @@
                         
                         setTimeout(executaPasCalibrareFocus, 50);
                     } else {
-                        // iOS/Safari fallback: Așteptăm 1.5 secunde ca autofocusul hardware continuu să blocheze claritatea optima
+                        // Fallback iOS/Safari
                         setTimeout(executaCapturaAutomataFallback, 1500);
                     }
                 }
-            } 
-            // 2. Starea CALIBRATING (pentru sisteme non-manuale, analizăm în timp real când crește claritatea)
-            else if (currentState === STATE_CALIBRATING && !calibrationSteps.length) {
+            } else if (currentState === STATE_CALIBRATING && !calibrationSteps.length) {
                 sharpnessHistory.push(metrice.sharpness);
                 if (sharpnessHistory.length > 20) {
                     sharpnessHistory.shift();
@@ -375,7 +392,7 @@
         requestAnimationFrame(analizaFrame);
     }
 
-    // --- CALIBRARE FOCUS HARDWARE (MĂTURARE PAS CU PAS) ---
+    // --- CALIBRARE PAȘI FOCALIZARE ---
     async function executaPasCalibrareFocus() {
         if (currentState !== STATE_CALIBRATING) return;
         
@@ -389,11 +406,8 @@
                         focusDistance: distantaCurenta
                     }]
                 });
-            } catch (e) {
-                console.warn("Eroare focus:", e);
-            }
+            } catch (e) {}
             
-            // Așteptăm ca lentila fizică să se deplaseze, apoi măsurăm claritatea imaginii obținute
             setTimeout(() => {
                 const size = 150;
                 const sx = (videoElement.videoWidth - size) / 2;
@@ -411,7 +425,6 @@
                 executaPasCalibrareFocus();
             }, 180);
         } else {
-            // Aplicăm distanța de focalizare optimă determinată din pași
             try {
                 await videoTrack.applyConstraints({
                     advanced: [{
@@ -425,17 +438,17 @@
         }
     }
 
-    // --- FALLBACK CAPTURĂ SAFARI/IOS (AUTOFOCUS CONTINUU) ---
     function executaCapturaAutomataFallback() {
         if (currentState !== STATE_CALIBRATING) return;
         declanseazaCapturaFoto();
     }
 
-    // --- CAPTURĂ ȘI PROCESARE IMAGINE (HOMOGRAFIE ȘI BLENDING MULTIPLY) ---
+    // --- CAPTURĂ ȘI PROCESARE IMAGINE ---
     function declanseazaCapturaFoto() {
         currentState = STATE_CAPTURING;
         statusText.textContent = "Focalizat! Se procesează desenul...";
         statusText.style.color = "#28a745";
+        videoElement.pause(); // Înghețăm imaginea în timpul procesării
         
         const capturedCanvas = document.createElement('canvas');
         capturedCanvas.width = videoElement.videoWidth;
@@ -443,12 +456,10 @@
         const capCtx = capturedCanvas.getContext('2d');
         capCtx.drawImage(videoElement, 0, 0);
         
-        // Stocăm pixelii cadrului capturat
         const srcW = capturedCanvas.width;
         const srcH = capturedCanvas.height;
         const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
         
-        // Rulăm Magic Wand pentru a detecta moneda în perspectivă din poză
         const rezultat = detecteazaMonedaMagicWand(capturedCanvas, true);
         const puncteSelectate = rezultat.puncte;
         const mascaSursa = rezultat.mask;
@@ -458,33 +469,30 @@
         const latimeDest = imgCoalaGoala.naturalWidth;
         const inaltimeDest = imgCoalaGoala.naturalHeight;
         
-        // Canvas de procesare finală
         const outputCanvas = document.createElement('canvas');
         outputCanvas.width = latimeDest;
         outputCanvas.height = inaltimeDest;
         const outCtx = outputCanvas.getContext('2d');
         
-        // Desenăm moneda-front ca fundal [2]
+        // Fundalul cu moneda de referință [2]
         outCtx.drawImage(imgCoalaGoala, 0, 0);
         
-        // Canvas temporar pentru desenul roșu extras
         const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
         tempCanvas.width = latimeDest;
         tempCanvas.height = inaltimeDest;
-        const tempCtx = tempCanvas.getContext('2d');
         const imgDataDesen = tempCtx.createImageData(latimeDest, inaltimeDest);
         const outPixels = imgDataDesen.data;
         
         const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
         const dstPoints = puncteCoala.map(p => [p.x, p.y]);
         
-        // Homografia directă: de la Moneda de referință 2 (destinație) -> Moneda perspectivă 1 (sursă)
         const H = getHomographyMatrix(dstPoints, srcPoints);
         const h00 = H[0], h01 = H[1], h02 = H[2];
         const h10 = H[3], h11 = H[4], h12 = H[5];
         const h20 = H[6], h21 = H[7], h22 = H[8];
         
-        // Praguri cromatici pentru detectarea și decuparea exclusivă a roșului saturat [2]
+        // Filtrare cromatică a desenului roșu [2]
         const pragRosu = pragRosuStandard;
         const zonaTranzitie = 15;
         const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
@@ -492,40 +500,37 @@
         for (let v = 0; v < inaltimeDest; v++) {
             for (let u = 0; u < latimeDest; u++) {
                 const destIdx = (v * latimeDest + u) * 4;
-                
-                // Masca organică destinație (Moneda 2)
+
                 const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latimeDest, inaltimeDest);
-                
+
                 if (valMascaDest > 0.0) {
                     // Mapare directă prin homografie (fără nicio rotație)
                     const denom = h20 * u + h21 * v + 1.0;
                     const sx = (h00 * u + h01 * v + h02) / denom;
                     const sy = (h10 * u + h11 * v + h12) / denom;
-                    
+
                     const x0 = Math.floor(sx);
                     const y0 = Math.floor(sy);
-                    
+
                     if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                        // Masca organică sursă (Moneda 1)
                         const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
-                        
+
                         if (valMascaSursa > 0.0) {
                             const dx_s = sx - x0;
                             const dy_s = sy - y0;
-                            
+
                             const idx00 = (y0 * srcW + x0) * 4;
                             const idx10 = idx00 + 4;
                             const idx01 = idx00 + srcW * 4;
                             const idx11 = idx01 + 4;
-                            
-                            // Eșantionare biliniară pe imaginea sursă capturată
+
                             let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
                             let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                             let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
-                            
-                            // Analiză cromatică fină (izolăm doar roșul intens, eliminând umbrele, reflexiile metalice sau padul) [2]
+
+                            // Izolăm exclusiv pixelii de culoare roșie (Redness) [2]
                             let redness = r - Math.max(g, b);
-                            
+
                             let alpha;
                             if (redness <= pragMinim) {
                                 alpha = 0; 
@@ -535,9 +540,9 @@
                                 let ratio = (redness - pragMinim) / zonaTranzitie;
                                 alpha = 255 * ratio;
                             }
-                            
+
                             const alphaFinal = alpha * valMascaSursa * valMascaDest;
-                            
+
                             outPixels[destIdx]     = r;
                             outPixels[destIdx + 1] = g;
                             outPixels[destIdx + 2] = b;
@@ -556,11 +561,11 @@
         
         tempCtx.putImageData(imgDataDesen, 0, 0);
         
-        // Blending Multiply pe imaginea de fundal (moneda-front)
+        // Blending Multiply pe moneda-front [2]
         outCtx.globalCompositeOperation = 'multiply';
         outCtx.drawImage(tempCanvas, 0, 0);
         
-        // Afișarea rezultatului pe tot ecranul
+        // Afișăm rezultatul
         imgRezultatFinal.src = outputCanvas.toDataURL('image/png');
         resultOverlay.style.display = 'flex';
     }
@@ -639,6 +644,170 @@
             return (1 - dx) * (1 - dy) * val00 + dx * (1 - dy) * val10 + (1 - dx) * dy * val01 + dx * dy * val11;
         }
         return 0.0;
+    }
+
+    // --- ALGORITM DETECȚIE MONEDĂ ---
+    function detecteazaMonedaMagicWand(img, isPerspective) {
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        const maxDim = 150;
+        const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
+        const sizeW = Math.round(img.naturalWidth * scale);
+        const sizeH = Math.round(img.naturalHeight * scale);
+        
+        tempCanvas.width = sizeW;
+        tempCanvas.height = sizeH;
+        tempCtx.drawImage(img, 0, 0, sizeW, sizeH);
+        
+        const imgData = tempCtx.getImageData(0, 0, sizeW, sizeH);
+        const pixeli = imgData.data;
+        
+        const lumaList = new Float32Array(sizeW * sizeH);
+        for (let i = 0; i < sizeW * sizeH; i++) {
+            const idx = i * 4;
+            lumaList[i] = 0.299 * pixeli[idx] + 0.587 * pixeli[idx+1] + 0.114 * pixeli[idx+2];
+        }
+        
+        const cornerLumas = [
+            lumaList[0],
+            lumaList[sizeW - 1],
+            lumaList[(sizeH - 1) * sizeW],
+            lumaList[sizeH * sizeW - 1]
+        ];
+        const avgBorderLuma = cornerLumas.reduce((a, b) => a + b, 0) / 4;
+        
+        let minL = 255;
+        let maxL = 0;
+        for (let i = 0; i < sizeW * sizeH; i++) {
+            if (lumaList[i] < minL) minL = lumaList[i];
+            if (lumaList[i] > maxL) maxL = lumaList[i];
+        }
+        
+        const threshold = avgBorderLuma + (maxL - avgBorderLuma) * 0.40;
+        
+        const visited = new Uint8Array(sizeW * sizeH);
+        const queue = [];
+        
+        const corners = [
+            [0, 0],
+            [sizeW - 1, 0],
+            [0, sizeH - 1],
+            [sizeW - 1, sizeH - 1]
+        ];
+        
+        corners.forEach(([cx, cy]) => {
+            const idx = cy * sizeW + cx;
+            visited[idx] = 1;
+            queue.push({ x: cx, y: cy });
+        });
+        
+        let head = 0;
+        const dx = [1, -1, 0, 0];
+        const dy = [0, 0, 1, -1];
+        
+        while (head < queue.length) {
+            const curr = queue[head++];
+            
+            for (let i = 0; i < 4; i++) {
+                const nx = curr.x + dx[i];
+                const ny = curr.y + dy[i];
+                
+                if (nx >= 0 && nx < sizeW && ny >= 0 && ny < sizeH) {
+                    const nidx = ny * sizeW + nx;
+                    if (visited[nidx] === 0) {
+                        if (lumaList[nidx] < threshold) {
+                            visited[nidx] = 1;
+                            queue.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+            }
+        }
+        
+        const coinMask = new Uint8Array(sizeW * sizeH);
+        let m00 = 0, m10 = 0, m01 = 0;
+        
+        for (let i = 0; i < sizeW * sizeH; i++) {
+            if (visited[i] === 0) {
+                coinMask[i] = 1;
+                m00++;
+                m10 += i % sizeW;
+                m01 += Math.floor(i / sizeW);
+            }
+        }
+        
+        const defaultPoints = () => {
+            const cx = img.naturalWidth * 0.5;
+            const cy = img.naturalHeight * 0.5;
+            const rx = Math.min(img.naturalWidth, img.naturalHeight) * 0.3;
+            const ry = isPerspective ? rx * 0.7 : rx;
+            return [
+                { x: cx - rx, y: cy },
+                { x: cx,      y: cy - ry },
+                { x: cx + rx, y: cy },
+                { x: cx,      y: cy + ry }
+            ];
+        };
+
+        if (m00 < 100) {
+            return { puncte: defaultPoints(), optimalThreshold: 150, mask: null, maskW: sizeW, maskH: sizeH };
+        }
+        
+        const xc = m10 / m00;
+        const yc = m01 / m00;
+        
+        let mu20 = 0, mu02 = 0, mu11 = 0;
+        let sumCoinLuma = 0;
+        let countCoinLuma = 0;
+
+        for (let y = 0; y < sizeH; y++) {
+            for (let x = 0; x < sizeW; x++) {
+                const idx = y * sizeW + x;
+                if (coinMask[idx] === 1) {
+                    const dx = x - xc;
+                    const dy = y - yc;
+                    mu20 += dx * dx;
+                    mu02 += dy * dy;
+                    mu11 += dx * dy;
+
+                    const luma = lumaList[idx];
+                    if (luma > minL + (maxL - minL) * 0.25) {
+                        sumCoinLuma += luma;
+                        countCoinLuma++;
+                    }
+                }
+            }
+        }
+        
+        const mu20_prime = mu20 / m00;
+        const mu02_prime = mu02 / m00;
+        const mu11_prime = mu11 / m00;
+        
+        const common = Math.sqrt(4 * mu11_prime * mu11_prime + (mu20_prime - mu02_prime) * (mu20_prime - mu02_prime));
+        const lambda1 = (mu20_prime + mu02_prime + common) / 2;
+        const lambda2 = (mu20_prime + mu02_prime - common) / 2;
+        
+        const a = 2 * Math.sqrt(lambda1);
+        const b = 2 * Math.sqrt(lambda2);
+        
+        const scaleFactor = 1 / scale;
+        const xc_orig = xc * scaleFactor;
+        const yc_orig = yc * scaleFactor;
+        const a_orig = a * scaleFactor;
+        const b_orig = b * scaleFactor;
+        
+        const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
+        const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
+
+        const puncte = [
+            { x: xc_orig - a_orig, y: yc_orig }, 
+            { x: xc_orig,          y: yc_orig + b_orig }, 
+            { x: xc_orig + a_orig, y: yc_orig }, 
+            { x: xc_orig,          y: yc_orig - b_orig }  
+        ];
+
+        return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };
     }
 </script>
 </body>

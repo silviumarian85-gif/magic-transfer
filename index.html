@@ -5,24 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Scaner Monede - Detecție & Aliniere Automată</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #0f111a; 
-            color: #e2e8f0; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            width: 100vw; 
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100dvw;
+            height: 100dvh;
+            overflow: hidden;
+            background: #090b10;
+            position: fixed; /* Blochează derularea elastică pe dispozitivele iOS */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #e2e8f0;
         }
         
         .container { 
             position: relative; 
-            width: 100%; 
-            height: 100%; 
+            width: 100dvw; 
+            height: 100dvh; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
@@ -51,8 +49,8 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100dvw;
+            height: 100dvh;
             background: black;
             z-index: 5;
         }
@@ -68,13 +66,14 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100dvw;
+            height: 100dvh;
             pointer-events: none;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            box-sizing: border-box;
         }
 
         .viewfinder-circle {
@@ -83,7 +82,7 @@
             border: 3px dashed rgba(255, 7, 58, 0.6);
             border-radius: 50%;
             position: relative;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
             transition: border-color 0.3s;
         }
 
@@ -97,10 +96,11 @@
             to { transform: scale(1.04); }
         }
 
+        /* Caseta de status mutată în partea de sus, protejată de Safe Area de pe mobil */
         .status-box {
             position: absolute;
-            bottom: calc(30px + env(safe-area-inset-bottom));
-            background: rgba(0,0,0,0.85);
+            top: calc(30px + env(safe-area-inset-top));
+            background: rgba(0,0,0,0.9);
             padding: 12px 24px;
             border-radius: 20px;
             font-size: 14px;
@@ -110,17 +110,18 @@
             color: #00bfff;
             text-align: center;
             max-width: 80%;
-            z-index: 10;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        /* Overlay rezultat pe tot ecranul */
+        /* Overlay rezultat final */
         .fullscreen-overlay { 
             display: none; 
             position: fixed; 
             top: 0; 
             left: 0; 
-            width: 100%; 
-            height: 100%; 
+            width: 100dvw; 
+            height: 100dvh; 
             background-color: rgba(10, 12, 16, 0.98); 
             z-index: 999; 
             align-items: center;
@@ -129,8 +130,8 @@
         }
 
         .fullscreen-overlay img { 
-            max-width: 90vw;
-            max-height: 80vh;
+            max-width: 90dvw;
+            max-height: 80dvh;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
             border: 2px solid #2d3748; 
             border-radius: 12px;
@@ -139,7 +140,7 @@
 
         .close-btn { 
             position: absolute; 
-            top: calc(20px + env(safe-area-inset-top)); 
+            top: calc(25px + env(safe-area-inset-top)); 
             right: 30px; 
             color: #cbd5e0; 
             font-size: 44px; 
@@ -223,21 +224,46 @@
     // Pragul cromatic de detecție pentru roșu
     const pragRosuStandard = 50; 
 
-    // --- ACTIVARE FULLSCREEN NATIV ---
-    function intraInFullscreen() {
-        const el = document.documentElement;
-        if (el.requestFullscreen) {
-            el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) { /* Safari / iOS */
-            el.webkitRequestFullscreen();
-        } else if (el.mozRequestFullScreen) {
-            el.mozRequestFullScreen();
-        } else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen();
+    // --- PORNIRE CAMERĂ ---
+    async function pornesteCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment', // Cameră spate
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+            videoElement.srcObject = stream;
+            videoTrack = stream.getVideoTracks()[0];
+            
+            btnPorneste.style.display = 'none';
+            cameraContainer.style.display = 'block';
+            isScanning = true;
+            currentState = STATE_SCANNING;
+            
+            viewfinder.className = 'viewfinder-circle';
+            statusText.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
+            statusText.style.color = "#00bfff";
+            
+            requestAnimationFrame(analizaFrame);
+        } catch (e) {
+            alert("Eroare la pornirea camerei. Permiteți accesul la cameră din spate!");
         }
     }
 
-    // --- ÎNCĂRCARE MONEDA-FRONT.JPG ---
+    // --- OPRIRE FIZICĂ CAMERĂ ---
+    function opresteCamera() {
+        isScanning = false;
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop()); // Eliberează camera fizică
+            stream = null;
+        }
+        videoElement.srcObject = null;
+        cameraContainer.style.display = 'none';
+    }
+
+    // --- ÎNCĂRCARE REZISTENTĂ MONEDA-FRONT.JPG ---
     imgCoalaGoala.crossOrigin = "anonymous";
     imgCoalaGoala.onload = () => {
         const rezultat = detecteazaMonedaMagicWand(imgCoalaGoala, false);
@@ -262,42 +288,16 @@
     };
     imgCoalaGoala.src = "moneda-front.jpg";
 
-    // --- PORNIRE CAMERĂ & FULLSCREEN ---
-    btnPorneste.addEventListener('click', async () => {
-        try {
-            // Activăm modul ecran complet la click
-            intraInFullscreen();
-
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'environment', // Cameră spate
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            videoElement.srcObject = stream;
-            videoTrack = stream.getVideoTracks()[0];
-            
-            btnPorneste.style.display = 'none';
-            cameraContainer.style.display = 'block';
-            isScanning = true;
-            currentState = STATE_SCANNING;
-            
-            requestAnimationFrame(analizaFrame);
-        } catch (e) {
-            alert("Eroare la pornirea camerei. Permiteți accesul la cameră și fullscreen!");
-        }
+    // --- EVENIMENT PORNIRE ---
+    btnPorneste.addEventListener('click', () => {
+        pornesteCamera();
     });
 
     // --- ÎNCHIDERE REZULTAT & RESTART FLUX ---
     btnInchideRezultat.addEventListener('click', () => {
         resultOverlay.style.display = 'none';
         imgRezultatFinal.src = '';
-        currentState = STATE_SCANNING;
-        viewfinder.className = 'viewfinder-circle';
-        statusText.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
-        statusText.style.color = "#00bfff";
-        videoElement.play(); // Repornim camera fără a re-solicita permisiuni
+        pornesteCamera(); // Repornim camera de la zero
     });
 
     // --- ALGORITM CLARITATE ROȘIE ---
@@ -377,7 +377,7 @@
                         
                         setTimeout(executaPasCalibrareFocus, 50);
                     } else {
-                        // Fallback iOS/Safari
+                        // Fallback iOS/Safari (autofocus continuu)
                         setTimeout(executaCapturaAutomataFallback, 1500);
                     }
                 }
@@ -447,14 +447,16 @@
     function declanseazaCapturaFoto() {
         currentState = STATE_CAPTURING;
         statusText.textContent = "Focalizat! Se procesează desenul...";
-        statusText.style.color = "#28a745";
-        videoElement.pause(); // Înghețăm imaginea în timpul procesării
+        statusText.style.color = "#39ff14"; // Verde neon cu vizibilitate înaltă
         
         const capturedCanvas = document.createElement('canvas');
         capturedCanvas.width = videoElement.videoWidth;
         capturedCanvas.height = videoElement.videoHeight;
         const capCtx = capturedCanvas.getContext('2d');
         capCtx.drawImage(videoElement, 0, 0);
+        
+        // Oprim fizic camera imediat ce imaginea a fost capturată
+        opresteCamera();
         
         const srcW = capturedCanvas.width;
         const srcH = capturedCanvas.height;
@@ -504,7 +506,7 @@
                 const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latimeDest, inaltimeDest);
 
                 if (valMascaDest > 0.0) {
-                    // Mapare directă prin homografie (fără nicio rotație)
+                    // Mapare directă prin homografie
                     const denom = h20 * u + h21 * v + 1.0;
                     const sx = (h00 * u + h01 * v + h02) / denom;
                     const sy = (h10 * u + h11 * v + h12) / denom;
@@ -743,10 +745,10 @@
             const rx = Math.min(img.naturalWidth, img.naturalHeight) * 0.3;
             const ry = isPerspective ? rx * 0.7 : rx;
             return [
-                { x: cx - rx, y: cy },
-                { x: cx,      y: cy - ry },
-                { x: cx + rx, y: cy },
-                { x: cx,      y: cy + ry }
+                { x: cx - rx, y: cy }, 
+                { x: cx,      y: cy - ry }, 
+                { x: cx + rx, y: cy }, 
+                { x: cx,      y: cy + ry }  
             ];
         };
 

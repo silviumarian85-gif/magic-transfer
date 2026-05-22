@@ -96,7 +96,7 @@
             to { transform: scale(1.04); }
         }
 
-        /* Caseta de status mutată în partea de sus, protejată de Safe Area de pe mobil */
+        /* Caseta de status protejată de Safe Area de pe mobil */
         .status-box {
             position: absolute;
             top: calc(30px + env(safe-area-inset-top));
@@ -114,7 +114,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        /* Overlay rezultat final */
+        /* Overlay rezultat final pe tot ecranul */
         .fullscreen-overlay { 
             display: none; 
             position: fixed; 
@@ -190,12 +190,17 @@
     let videoTrack = null;
     let isScanning = false;
 
-    // Parametrii Monedei 2 de referință (moneda-front.jpg)
+    // Inițializări geometrice defensive în caz de încărcare întârziată a imaginii moneda-front
     const imgCoalaGoala = new Image();
-    let puncteCoala = [];
+    let puncteCoala = [
+        { x: 100, y: 300 },
+        { x: 300, y: 500 },
+        { x: 500, y: 300 },
+        { x: 300, y: 100 }
+    ];
     let mascaDest = null;
-    let mascaDestW = 0;
-    let mascaDestH = 0;
+    let mascaDestW = 600;
+    let mascaDestH = 600;
 
     let cachedSrcPixels = null;
     let cachedSrcW = 0;
@@ -224,9 +229,50 @@
     // Pragul cromatic de detecție pentru roșu
     const pragRosuStandard = 50; 
 
+    // --- ACTIVARE FULLSCREEN NATIV ---
+    function intraInFullscreen() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) { /* Safari / iOS */
+            el.webkitRequestFullscreen();
+        } else if (el.mozRequestFullScreen) {
+            el.mozRequestFullScreen();
+        } else if (el.msRequestFullscreen) {
+            el.msRequestFullscreen();
+        }
+    }
+
+    // --- ÎNCĂRCARE MONEDA-FRONT.JPG ---
+    imgCoalaGoala.crossOrigin = "anonymous";
+    imgCoalaGoala.onload = () => {
+        const rezultat = detecteazaMonedaMagicWand(imgCoalaGoala, false);
+        puncteCoala = rezultat.puncte;
+        mascaDest = rezultat.mask;
+        mascaDestW = rezultat.maskW;
+        mascaDestH = rezultat.maskH;
+    };
+    imgCoalaGoala.onerror = () => {
+        // Generare textură standard dacă moneda-front.jpg lipsește la rularea locală
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 600;
+        tempCanvas.height = 600;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.fillStyle = '#11141a';
+        tempCtx.fillRect(0, 0, 600, 600);
+        tempCtx.fillStyle = '#718096';
+        tempCtx.beginPath();
+        tempCtx.arc(300, 300, 180, 0, 2 * Math.PI);
+        tempCtx.fill();
+        imgCoalaGoala.src = tempCanvas.toDataURL();
+    };
+    imgCoalaGoala.src = "moneda-front.jpg";
+
     // --- PORNIRE CAMERĂ ---
     async function pornesteCamera() {
         try {
+            intraInFullscreen();
+
             stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: 'environment', // Cameră spate
@@ -262,31 +308,6 @@
         videoElement.srcObject = null;
         cameraContainer.style.display = 'none';
     }
-
-    // --- ÎNCĂRCARE REZISTENTĂ MONEDA-FRONT.JPG ---
-    imgCoalaGoala.crossOrigin = "anonymous";
-    imgCoalaGoala.onload = () => {
-        const rezultat = detecteazaMonedaMagicWand(imgCoalaGoala, false);
-        puncteCoala = rezultat.puncte;
-        mascaDest = rezultat.mask;
-        mascaDestW = rezultat.maskW;
-        mascaDestH = rezultat.maskH;
-    };
-    imgCoalaGoala.onerror = () => {
-        // Generare textură standard dacă moneda-front.jpg lipsește la rularea locală
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 600;
-        tempCanvas.height = 600;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.fillStyle = '#11141a';
-        tempCtx.fillRect(0, 0, 600, 600);
-        tempCtx.fillStyle = '#718096';
-        tempCtx.beginPath();
-        tempCtx.arc(300, 300, 180, 0, 2 * Math.PI);
-        tempCtx.fill();
-        imgCoalaGoala.src = tempCanvas.toDataURL();
-    };
-    imgCoalaGoala.src = "moneda-front.jpg";
 
     // --- EVENIMENT PORNIRE ---
     btnPorneste.addEventListener('click', () => {
@@ -377,7 +398,7 @@
                         
                         setTimeout(executaPasCalibrareFocus, 50);
                     } else {
-                        // Fallback iOS/Safari (autofocus continuu)
+                        // Fallback iOS/Safari (autofocus hardware)
                         setTimeout(executaCapturaAutomataFallback, 1500);
                     }
                 }
@@ -445,131 +466,143 @@
 
     // --- CAPTURĂ ȘI PROCESARE IMAGINE ---
     function declanseazaCapturaFoto() {
-        currentState = STATE_CAPTURING;
-        statusText.textContent = "Focalizat! Se procesează desenul...";
-        statusText.style.color = "#39ff14"; // Verde neon cu vizibilitate înaltă
-        
-        const capturedCanvas = document.createElement('canvas');
-        capturedCanvas.width = videoElement.videoWidth;
-        capturedCanvas.height = videoElement.videoHeight;
-        const capCtx = capturedCanvas.getContext('2d');
-        capCtx.drawImage(videoElement, 0, 0);
-        
-        // Oprim fizic camera imediat ce imaginea a fost capturată
-        opresteCamera();
-        
-        const srcW = capturedCanvas.width;
-        const srcH = capturedCanvas.height;
-        const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
-        
-        const rezultat = detecteazaMonedaMagicWand(capturedCanvas, true);
-        const puncteSelectate = rezultat.puncte;
-        const mascaSursa = rezultat.mask;
-        const mascaSursaW = rezultat.maskW;
-        const mascaSursaH = rezultat.maskH;
-        
-        const latimeDest = imgCoalaGoala.naturalWidth;
-        const inaltimeDest = imgCoalaGoala.naturalHeight;
-        
-        const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = latimeDest;
-        outputCanvas.height = inaltimeDest;
-        const outCtx = outputCanvas.getContext('2d');
-        
-        // Fundalul cu moneda de referință [2]
-        outCtx.drawImage(imgCoalaGoala, 0, 0);
-        
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = latimeDest;
-        tempCanvas.height = inaltimeDest;
-        const imgDataDesen = tempCtx.createImageData(latimeDest, inaltimeDest);
-        const outPixels = imgDataDesen.data;
-        
-        const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-        const dstPoints = puncteCoala.map(p => [p.x, p.y]);
-        
-        const H = getHomographyMatrix(dstPoints, srcPoints);
-        const h00 = H[0], h01 = H[1], h02 = H[2];
-        const h10 = H[3], h11 = H[4], h12 = H[5];
-        const h20 = H[6], h21 = H[7], h22 = H[8];
-        
-        // Filtrare cromatică a desenului roșu [2]
-        const pragRosu = pragRosuStandard;
-        const zonaTranzitie = 15;
-        const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
-        
-        for (let v = 0; v < inaltimeDest; v++) {
-            for (let u = 0; u < latimeDest; u++) {
-                const destIdx = (v * latimeDest + u) * 4;
+        try {
+            currentState = STATE_CAPTURING;
+            statusText.textContent = "Focalizat! Se procesează desenul...";
+            statusText.style.color = "#39ff14"; // Verde neon cu vizibilitate înaltă
+            
+            const capturedCanvas = document.createElement('canvas');
+            capturedCanvas.width = videoElement.videoWidth;
+            capturedCanvas.height = videoElement.videoHeight;
+            const capCtx = capturedCanvas.getContext('2d');
+            capCtx.drawImage(videoElement, 0, 0);
+            
+            // Oprim fizic camera imediat ce imaginea a fost capturată în memorie
+            opresteCamera();
+            
+            const srcW = capturedCanvas.width;
+            const srcH = capturedCanvas.height;
+            const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
+            
+            // Rulăm Magic Wand pe cadrul capturat pentru a izola geometria monedei 1
+            const rezultat = detecteazaMonedaMagicWand(capturedCanvas, true);
+            const puncteSelectate = rezultat.puncte;
+            const mascaSursa = rezultat.mask;
+            const mascaSursaW = rezultat.maskW;
+            const mascaSursaH = rezultat.maskH;
+            
+            const latimeDest = imgCoalaGoala.naturalWidth || imgCoalaGoala.width || 600;
+            const inaltimeDest = imgCoalaGoala.naturalHeight || imgCoalaGoala.height || 600;
+            
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = latimeDest;
+            outputCanvas.height = inaltimeDest;
+            const outCtx = outputCanvas.getContext('2d');
+            
+            // Desenăm moneda de referință 2 ca fundal [2]
+            outCtx.drawImage(imgCoalaGoala, 0, 0);
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = latimeDest;
+            tempCanvas.height = inaltimeDest;
+            const imgDataDesen = tempCtx.createImageData(latimeDest, inaltimeDest);
+            const outPixels = imgDataDesen.data;
+            
+            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
+            const dstPoints = puncteCoala.map(p => [p.x, p.y]);
+            
+            const H = getHomographyMatrix(dstPoints, srcPoints);
+            const h00 = H[0], h01 = H[1], h02 = H[2];
+            const h10 = H[3], h11 = H[4], h12 = H[5];
+            const h20 = H[6], h21 = H[7], h22 = H[8];
+            
+            // Filtrare cromatică a desenului roșu [2]
+            const pragRosu = pragRosuStandard;
+            const zonaTranzitie = 15;
+            const pragMinim = Math.max(0, pragRosu - zonaTranzitie);
+            
+            for (let v = 0; v < inaltimeDest; v++) {
+                for (let u = 0; u < latimeDest; u++) {
+                    const destIdx = (v * latimeDest + u) * 4;
 
-                const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latimeDest, inaltimeDest);
+                    const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latimeDest, inaltimeDest);
 
-                if (valMascaDest > 0.0) {
-                    // Mapare directă prin homografie
-                    const denom = h20 * u + h21 * v + 1.0;
-                    const sx = (h00 * u + h01 * v + h02) / denom;
-                    const sy = (h10 * u + h11 * v + h12) / denom;
+                    if (valMascaDest > 0.0) {
+                        // Mapare directă prin homografie (fără nicio rotație)
+                        const denom = h20 * u + h21 * v + 1.0;
+                        const sx = (h00 * u + h01 * v + h02) / denom;
+                        const sy = (h10 * u + h11 * v + h12) / denom;
 
-                    const x0 = Math.floor(sx);
-                    const y0 = Math.floor(sy);
+                        const x0 = Math.floor(sx);
+                        const y0 = Math.floor(sy);
 
-                    if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                        const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
+                        if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
+                            const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
 
-                        if (valMascaSursa > 0.0) {
-                            const dx_s = sx - x0;
-                            const dy_s = sy - y0;
+                            if (valMascaSursa > 0.0) {
+                                const dx_s = sx - x0;
+                                const dy_s = sy - y0;
 
-                            const idx00 = (y0 * srcW + x0) * 4;
-                            const idx10 = idx00 + 4;
-                            const idx01 = idx00 + srcW * 4;
-                            const idx11 = idx01 + 4;
+                                const idx00 = (y0 * srcW + x0) * 4;
+                                const idx10 = idx00 + 4;
+                                const idx01 = idx00 + srcW * 4;
+                                const idx11 = idx01 + 4;
 
-                            let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
-                            let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
-                            let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
+                                let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
+                                let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
+                                let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                            // Izolăm exclusiv pixelii de culoare roșie (Redness) [2]
-                            let redness = r - Math.max(g, b);
+                                // Izolăm exclusiv pixelii de culoare roșie (Redness) [2]
+                                let redness = r - Math.max(g, b);
 
-                            let alpha;
-                            if (redness <= pragMinim) {
-                                alpha = 0; 
-                            } else if (redness >= pragRosu) {
-                                alpha = 255; 
+                                let alpha;
+                                if (redness <= pragMinim) {
+                                    alpha = 0; 
+                                    alpha = 0; 
+                                } else if (redness >= pragRosu) {
+                                    alpha = 255; 
+                                } else {
+                                    let ratio = (redness - pragMinim) / zonaTranzitie;
+                                    alpha = 255 * ratio;
+                                }
+
+                                const alphaFinal = alpha * valMascaSursa * valMascaDest;
+
+                                outPixels[destIdx]     = r;
+                                outPixels[destIdx + 1] = g;
+                                outPixels[destIdx + 2] = b;
+                                outPixels[destIdx + 3] = alphaFinal;
                             } else {
-                                let ratio = (redness - pragMinim) / zonaTranzitie;
-                                alpha = 255 * ratio;
+                                outPixels[destIdx + 3] = 0;
                             }
-
-                            const alphaFinal = alpha * valMascaSursa * valMascaDest;
-
-                            outPixels[destIdx]     = r;
-                            outPixels[destIdx + 1] = g;
-                            outPixels[destIdx + 2] = b;
-                            outPixels[destIdx + 3] = alphaFinal;
                         } else {
                             outPixels[destIdx + 3] = 0;
                         }
                     } else {
                         outPixels[destIdx + 3] = 0;
                     }
-                } else {
-                    outPixels[destIdx + 3] = 0;
                 }
             }
+            
+            tempCtx.putImageData(imgDataDesen, 0, 0);
+            
+            // Blending Multiply pe moneda-front [2]
+            outCtx.globalCompositeOperation = 'multiply';
+            outCtx.drawImage(tempCanvas, 0, 0);
+            
+            // Afișăm rezultatul
+            imgRezultatFinal.src = outputCanvas.toDataURL('image/png');
+            resultOverlay.style.display = 'flex';
+        } catch (err) {
+            console.error("Eroare procesare:", err);
+            // În caz de eroare la unghiul ascuțit sau încadrare, repornim automat camera
+            currentState = STATE_SCANNING;
+            viewfinder.className = 'viewfinder-circle';
+            statusText.textContent = "Eroare detecție. Reîncercați încadrarea monedei...";
+            statusText.style.color = "#ff073a";
+            pornesteCamera();
         }
-        
-        tempCtx.putImageData(imgDataDesen, 0, 0);
-        
-        // Blending Multiply pe moneda-front [2]
-        outCtx.globalCompositeOperation = 'multiply';
-        outCtx.drawImage(tempCanvas, 0, 0);
-        
-        // Afișăm rezultatul
-        imgRezultatFinal.src = outputCanvas.toDataURL('image/png');
-        resultOverlay.style.display = 'flex';
     }
 
     // --- Matematică Homografie ---
@@ -653,10 +686,14 @@
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
+        // Citim dinamic dimensiunile elementului (Img sau Canvas) pentru a preveni erorile de tip NaN
+        const imgW = img.naturalWidth || img.width || 600;
+        const imgH = img.naturalHeight || img.height || 600;
+        
         const maxDim = 150;
-        const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
-        const sizeW = Math.round(img.naturalWidth * scale);
-        const sizeH = Math.round(img.naturalHeight * scale);
+        const scale = maxDim / Math.max(imgW, imgH);
+        const sizeW = Math.round(imgW * scale);
+        const sizeH = Math.round(imgH * scale);
         
         tempCanvas.width = sizeW;
         tempCanvas.height = sizeH;
@@ -740,9 +777,9 @@
         }
         
         const defaultPoints = () => {
-            const cx = img.naturalWidth * 0.5;
-            const cy = img.naturalHeight * 0.5;
-            const rx = Math.min(img.naturalWidth, img.naturalHeight) * 0.3;
+            const cx = imgW * 0.5;
+            const cy = imgH * 0.5;
+            const rx = Math.min(imgW, imgH) * 0.3;
             const ry = isPerspective ? rx * 0.7 : rx;
             return [
                 { x: cx - rx, y: cy }, 

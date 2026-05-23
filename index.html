@@ -101,7 +101,7 @@
                 padding: 0;
             }
             .desktop-container {
-                display: none !important;
+                display: none;
             }
             .mobile-container {
                 display: flex !important;
@@ -117,86 +117,19 @@
                 z-index: 1;
             }
 
-            .btn-start-mobile { 
-                background: #28a745; 
-                color: white; 
-                padding: 18px 45px; 
-                border-radius: 30px; 
-                cursor: pointer; 
-                font-weight: bold; 
-                font-size: 18px; 
-                border: none; 
-                transition: 0.2s; 
-                box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
-                z-index: 10;
-            }
-
-            .camera-box-mobile {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100dvw;
-                height: 100dvh;
-                background: black;
-                z-index: 5;
-            }
-
-            #videoElementMobile {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-
-            .hud-overlay-mobile {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100dvw;
-                height: 100dvh;
-                pointer-events: none;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                box-sizing: border-box;
-            }
-
-            .viewfinder-circle-mobile {
-                width: 260px;
-                height: 260px;
-                border: 3px dashed rgba(255, 7, 58, 0.6);
-                border-radius: 50%;
-                position: relative;
-                box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
-                transition: border-color 0.3s;
-            }
-
-            .viewfinder-circle-mobile.calibrating {
-                border-color: #ffc107;
-                animation: pulse-mobile 1s infinite alternate;
-            }
-
-            @keyframes pulse-mobile {
-                from { transform: scale(1); }
-                to { transform: scale(1.04); }
-            }
-
-            .status-box-mobile {
-                position: absolute;
-                top: calc(30px + env(safe-area-inset-top));
-                background: rgba(0,0,0,0.9);
-                padding: 12px 24px;
-                border-radius: 20px;
-                font-size: 14px;
-                font-weight: 600;
-                border: 1px solid #2d3748;
-                pointer-events: none;
+            .loader-box-mobile {
                 color: #00bfff;
+                font-size: 16px;
+                font-weight: 600;
                 text-align: center;
-                max-width: 80%;
-                z-index: 100;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                padding: 20px;
+                z-index: 10;
+                animation: blink-mobile 1.5s infinite alternate;
+            }
+
+            @keyframes blink-mobile {
+                from { opacity: 0.6; }
+                to { opacity: 1; }
             }
 
             .result-overlay-mobile { 
@@ -334,22 +267,14 @@
     </div>
 </div>
 
-<!-- === INTERFAȚA CAMERĂ MOBIL AUTOMATĂ === -->
+<!-- === INTERFAȚA DE MOBIL PENTRU TEST AUTOMAT DE SERVER === -->
 <div class="mobile-container">
-    <button id="btnPornesteMobile" class="btn-start-mobile">🔌 Porneste camera</button>
-    
-    <div id="cameraContainerMobile" class="camera-box-mobile">
-        <video id="videoElementMobile" autoplay playsinline></video>
-        <div class="hud-overlay-mobile">
-            <div id="viewfinderMobile" class="viewfinder-circle-mobile"></div>
-        </div>
-        <div id="statusTextMobile" class="status-box-mobile">Apropiați moneda și aliniați desenul în cerc...</div>
-    </div>
+    <div id="loaderMobile" class="loader-box-mobile">⌛ Se încarcă și se procesează automat moneda-perspectiva.jpg de pe server...</div>
 
     <div id="resultOverlayMobile" class="result-overlay-mobile">
         <span id="btnInchideRezultatMobile" class="close-btn-mobile">&times;</span>
         <img id="imgRezultatFinalMobile" src="" alt="Rezultat Aliniere">
-        <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică a roșului</div>
+        <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras din imaginea locală de pe server</div>
     </div>
 </div>
 
@@ -379,11 +304,7 @@
     const imgFullscreen = document.getElementById('imgFullscreen');
 
     // --- ELEMENTE DOM MOBILE ---
-    const btnPornesteMobile = document.getElementById('btnPornesteMobile');
-    const cameraContainerMobile = document.getElementById('cameraContainerMobile');
-    const videoElementMobile = document.getElementById('videoElementMobile');
-    const viewfinderMobile = document.getElementById('viewfinderMobile');
-    const statusTextMobile = document.getElementById('statusTextMobile');
+    const loaderMobile = document.getElementById('loaderMobile');
     const resultOverlayMobile = document.getElementById('resultOverlayMobile');
     const btnInchideRezultatMobile = document.getElementById('btnInchideRezultatMobile');
     const imgRezultatFinalMobile = document.getElementById('imgRezultatFinalMobile');
@@ -416,29 +337,10 @@
 
     let isZoomed = false;
 
-    // State cameră mobilă
-    let stream = null;
-    let videoTrack = null;
-    let isScanning = false;
-    const STATE_SCANNING = 1;
-    const STATE_CALIBRATING = 2;
-    const STATE_CAPTURING = 3;
-    let currentState = STATE_SCANNING;
-
-    let sharpnessHistory = [];
-    let bestFocusDistance = 0;
-    let bestSharpness = 0;
-    let calibrationSteps = [];
-    let currentStepIndex = 0;
-
     // Prăguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
     const tranzitieMobile = 15;
-
-    // Canvas de analiză a cadrelor live
-    let analysisCanvas = document.createElement('canvas');
-    let analysisCtx = analysisCanvas.getContext('2d');
 
     // Activăm afișarea textului în slider-ul desktop
     if (sliderSensibilitate) {
@@ -1159,7 +1061,7 @@
             
             requestAnimationFrame(analizaFrameMobile);
         } catch (e) {
-            alert("Eroare la activarea cameres spate. Verificați permisiunile!");
+            alert("Eroare la activarea camerei spate. Verificați permisiunile!");
         }
     }
 
@@ -1340,22 +1242,20 @@
             // 2. CURĂȚARE COȘMETICĂ DINAMICĂ A FUNDALULUI (MASCARE AUTOMATĂ ADAPTIVĂ) [3]
             // Folosim raza determinată dinamic pentru a plasa masca albă fix la marginea monedei [3]
             // Acest lucru garantează o mascare perfectă a fundalului, indiferent de distanța de fotografiere [3]
-            capCtx.globalCompositeOperation = 'destination-over';
-            capCtx.fillStyle = '#ffffff';
-            capCtx.fillRect(0, 0, capW, capH);
-            capCtx.globalCompositeOperation = 'source-over';
+            const cleanCtx = capturedCanvas.getContext('2d');
+            cleanCtx.globalCompositeOperation = 'destination-over';
+            cleanCtx.fillStyle = '#ffffff';
+            cleanCtx.fillRect(0, 0, capW, capH);
+            cleanCtx.globalCompositeOperation = 'source-over';
             
             // Desenăm inelul de curățare adaptat dinamic la raza reală (+ 50px distanță siguranță) [3]
-            const gradient = capCtx.createRadialGradient(1512, 2016, razaMedie + 15, 1512, 2016, razaMedie + 65);
+            const gradient = cleanCtx.createRadialGradient(1512, 2016, razaMedie + 15, 1512, 2016, razaMedie + 65);
             gradient.addColorStop(0, 'rgba(255,255,255,0)');
             gradient.addColorStop(1, 'rgba(255,255,255,1)');
-            capCtx.fillStyle = gradient;
-            capCtx.beginPath();
-            capCtx.arc(1512, 2016, capW, 0, 2 * Math.PI);
-            capCtx.fill();
-
-            // Oprim fizic camera imediat ce imaginea a fost copiată și pre-curățată în canvas
-            opresteFluxCameraMobile();
+            cleanCtx.fillStyle = gradient;
+            cleanCtx.beginPath();
+            cleanCtx.arc(1512, 2016, capW, 0, 2 * Math.PI);
+            cleanCtx.fill();
 
             const srcW = capturedCanvas.width;
             const srcH = capturedCanvas.height;
@@ -1409,7 +1309,7 @@
                     const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie (auto-scalarea funcționează perfect acum datorită măștii adaptive) [3]
+                        // Mapare directă prin homografie
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;

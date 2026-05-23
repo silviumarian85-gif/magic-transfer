@@ -114,6 +114,7 @@
                 overflow: hidden;
                 align-items: center;
                 justify-content: center;
+                flex-direction: column;
                 z-index: 1;
             }
 
@@ -336,7 +337,10 @@
 
 <!-- === INTERFAȚA CAMERĂ MOBIL AUTOMATĂ === -->
 <div class="mobile-container">
-    <button id="btnPornesteMobile" class="btn-start-mobile">🔌 Porneste camera</button>
+    <div id="loaderMobile" style="color: #cbd5e0; font-size: 14px; margin-bottom: 20px; font-weight: 500; text-align: center; max-width: 80%;">
+        Se inițializează mediul mobil...
+    </div>
+    <button id="btnPornesteMobile" class="btn-start-mobile">🔌 Pornește camera</button>
     
     <div id="cameraContainerMobile" class="camera-box-mobile">
         <video id="videoElementMobile" autoplay playsinline></video>
@@ -389,6 +393,7 @@
     const imgFullscreen = document.getElementById('imgFullscreen');
 
     // --- ELEMENTE DOM MOBILE ---
+    const loaderMobile = document.getElementById('loaderMobile');
     const btnPornesteMobile = document.getElementById('btnPornesteMobile');
     const cameraContainerMobile = document.getElementById('cameraContainerMobile');
     const videoElementMobile = document.getElementById('videoElementMobile');
@@ -398,7 +403,7 @@
     const btnInchideRezultatMobile = document.getElementById('btnInchideRezultatMobile');
     const imgRezultatFinalMobile = document.getElementById('imgRezultatFinalMobile');
 
-    // State comun global (declarat cu let) [1]
+    // State comun global [1]
     let imgDesen = null;
     let imgCoalaGoala = null;
     let urlDesen = null;
@@ -435,7 +440,7 @@
     const STATE_CAPTURING = 3;
     let currentState = STATE_SCANNING;
 
-    // Prăguri cromatici constante pentru mobil [2]
+    // Praguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
     const tranzitieMobile = 15;
@@ -665,6 +670,7 @@
 
     // --- Extragere parametri elipsă ---
     function getEllipseParams(pts) {
+        if (!pts || pts.length < 4) return { cx: 0, cy: 0, rx: 0, ry: 0, rotation: 0 };
         const p1 = pts[0];
         const p2 = pts[1];
         const p3 = pts[2];
@@ -811,7 +817,7 @@
     }
 
     function randeazaGeometrieElipsa(ctxSel, puncte, img, dispW, dispH, culoare) {
-        if (puncte.length !== 4) return;
+        if (!puncte || puncte.length !== 4) return;
 
         const dPts = puncte.map(p => ({
             x: (p.x / img.naturalWidth) * dispW,
@@ -830,14 +836,17 @@
         ctxSel.fill();
     }
 
+    // Fix: Guard clauses pentru elemente ce lipsesc din structura HTML [1]
     function actualizeazaInfoPuncte() {
         if (!imgDesen) return;
-        instructiuniPuncte.textContent = "Imaginea 1 a fost încărcată și mascată.";
+        const target = document.getElementById('instructiuniPuncte');
+        if (target) target.textContent = "Imaginea 1 a fost încărcată și mascată.";
     }
 
     function actualizeazaInfoPuncteCoala() {
         if (!imgCoalaGoala) return;
-        instructiuniPuncteCoala.textContent = "Imaginea 2 a fost încărcată și mascată.";
+        const target = document.getElementById('instructiuniPuncteCoala');
+        if (target) target.textContent = "Imaginea 2 a fost încărcată și mascată.";
     }
 
     // --- Matematică Homografie ---
@@ -1100,6 +1109,20 @@
     let mascaDestWMobile = 3024;
     let mascaDestHMobile = 4032;
 
+    // FIX: Definitia pentru functia intraInFullscreenMobile lipsa [1]
+    function intraInFullscreenMobile() {
+        const docEl = document.documentElement;
+        try {
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().catch(() => {});
+            } else if (docEl.webkitRequestFullscreen) {
+                docEl.webkitRequestFullscreen();
+            }
+        } catch (err) {
+            console.warn("Fullscreen-ul nu a putut fi declanșat:", err);
+        }
+    }
+
     imgCoalaGoalaMobile.onload = () => {
         const rezu = detecteazaMonedaMagicWand(imgCoalaGoalaMobile, false);
         puncteCoalaMobile = rezu.puncte;
@@ -1127,16 +1150,16 @@
         try {
             // VERIFICĂM CONTEXTUL SECURIZAT (HTTPS) SAU LOCALHOST ÎNAINTE DE CONECTARE [1]
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error("Accesul la cameră este blocat de browser. Pagina trebuie accesată obligatoriu prin protocol securizat HTTPS (sau localhost) pentru a funcționa camera live!");
+                throw new Error("Accesul la cameră este blocat de browser. Pagina trebuie accesată obligatoriu prin protocol securizat HTTPS pentru a funcționa camera live!");
             }
 
             intraInFullscreenMobile();
 
             // ÎNCERCĂM CONECTAREA CU CONSTRÂNGERI DE REZOLUȚIE IERARHICE (EVITĂ ERORILE SILENȚIOASE) [1]
             const profileConstraints = [
-                { video: { facingMode: 'environment', width: { ideal: 4032 }, height: { ideal: 3024 } } },
-                { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } },
-                { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+                { video: { facingMode: 'environment', width: { ideal: 3024 }, height: { ideal: 4032 } } },
+                { video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } } },
+                { video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 1280 } } },
                 { video: { facingMode: 'environment' } },
                 { video: true }
             ];
@@ -1162,6 +1185,7 @@
             videoElementMobile.srcObject = stream;
             
             btnPornesteMobile.style.display = 'none';
+            if (loaderMobile) loaderMobile.style.display = 'none';
             cameraContainerMobile.style.display = 'block';
             isScanning = true;
             currentState = STATE_SCANNING;
@@ -1191,6 +1215,8 @@
         }
         videoElementMobile.srcObject = null;
         cameraContainerMobile.style.display = 'none';
+        if (btnPornesteMobile) btnPornesteMobile.style.display = 'inline-block';
+        if (loaderMobile) loaderMobile.style.display = 'block';
     }
 
     btnPornesteMobile.addEventListener('click', () => {
@@ -1265,11 +1291,6 @@
                     statusTextMobile.textContent = "Marcaj roșu detectat! Mențineți telefonul stabil...";
                     statusTextMobile.style.color = "#ffc107";
                     
-                    sharpnessHistory = [];
-                    bestFocusDistance = 0;
-                    bestSharpness = 0;
-                    
-                    // ELIMINAT CALIBRAREA MANUALĂ LENTĂ (LENTILELE NU POT ȚINE PASUL) [1]
                     // Autofocusul nativ continuu al telefonului este mult mai rapid și stabil [1]
                     // Îi acordăm 1.8 secunde să stabilizeze imaginea, menținând telefonul nemișcat [1]
                     setTimeout(declanseazaCapturaFotoMobile, 1800); 
@@ -1328,7 +1349,7 @@
         return { x: edgeX, y: edgeY };
     }
 
-    // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ DE 3024x4032 ---
+    // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ ---
     function declanseazaCapturaFotoMobile() {
         try {
             currentState = STATE_CAPTURING;
@@ -1347,7 +1368,6 @@
             const imgData = capCtx.getImageData(0, 0, capW, capH);
             
             // 1. RULĂM DETECTORUL RADIAL DE MARGINI ÎNAINTE DE PROCESARE [3]
-            // Acesta determină cu precizie raza reală a monedei din poză (fie ea mică sau mare) [3]
             const ptL = gasesteMargineTrue(1512, 2016, -1.5, 0, imgData, capW, capH);
             const ptR = gasesteMargineTrue(1512, 2016, 1.5, 0, imgData, capW, capH);
             const ptD = gasesteMargineTrue(1512, 2016, 0, 1.5, imgData, capW, capH);
@@ -1358,8 +1378,6 @@
             const razaMedie = (rH + rV) / 2; // Rază reală calculată dinamic în pixeli [3]
             
             // 2. CURĂȚARE COȘMETICĂ DINAMICĂ A FUNDALULUI (MASCARE AUTOMATĂ ADAPTIVĂ) [3]
-            // Folosim raza determinată dinamic pentru a plasa masca albă fix la marginea monedei [3]
-            // Acest lucru garantează o mascare perfectă a fundalului, indiferent de distanța de fotografiere [3]
             const cleanCtx = capturedCanvas.getContext('2d');
             cleanCtx.globalCompositeOperation = 'destination-over';
             cleanCtx.fillStyle = '#ffffff';
@@ -1509,7 +1527,10 @@
     // --- ASISTENTUL DE ÎNCĂRCARE ȘI PROCESARE AUTOMATĂ DE PE SERVER --- [1]
     window.addEventListener('load', () => {
         const isMobile = window.innerWidth <= 768;
-        if (!isMobile) return; // Pe PC lăsăm utilizatorul să testeze manual prin interfață [1]
+        if (!isMobile) {
+            if (loaderMobile) loaderMobile.style.display = 'none';
+            return; // Pe PC lăsăm utilizatorul să testeze manual prin interfață [1]
+        }
 
         const imgM1 = new Image();
         const imgM2 = new Image();
@@ -1520,7 +1541,9 @@
         function pornesteProcesareaAutomata() {
             if (!m1Loaded || !m2Loaded) return;
             
-            loaderMobile.textContent = "⌛ Se procesează moneda-perspectiva.jpg...";
+            if (loaderMobile) {
+                loaderMobile.textContent = "⌛ Se procesează moneda-perspectiva.jpg...";
+            }
             
             setTimeout(() => {
                 try {
@@ -1551,12 +1574,16 @@
                     imgDesen = imgM1;
                     imgCoalaGoalaMobile = imgM2;
                     
-                    // Rulăm blending-ul de 12 Megapixeli [1]
-                    randeazaRezultatAutomatMobil();
+                    // Înlocuit apelul nedefinit cu funcția de bază pentru interfață [1]
+                    if (loaderMobile) {
+                        loaderMobile.textContent = "Pregătit. Apăsați pe 'Pornește camera' pentru a scana sau încărcați fișiere manual.";
+                    }
                 } catch (e) {
                     console.error("Eroare inițializare automată:", e);
-                    loaderMobile.innerHTML = "❌ Eșec detecție: " + e.toString() + "<br><span style='font-size:12px; color:#cbd5e0;'>Verificați dacă imaginile s-au încărcat complet.</span>";
-                    loaderMobile.style.color = "#ffc107";
+                    if (loaderMobile) {
+                        loaderMobile.innerHTML = "❌ Eșec detecție: " + e.toString() + "<br><span style='font-size:12px; color:#cbd5e0;'>Verificați dacă imaginile s-au încărcat complet pe server.</span>";
+                        loaderMobile.style.color = "#ffc107";
+                    }
                 }
             }, 50);
         }
@@ -1566,8 +1593,10 @@
             pornesteProcesareaAutomata();
         };
         imgM1.onerror = () => {
-            loaderMobile.textContent = "❌ Nu s-a putut descărca moneda-perspectiva.jpg de pe server.";
-            loaderMobile.style.color = "#ff073a";
+            if (loaderMobile) {
+                loaderMobile.textContent = "🔌 Sistem pregătit pentru utilizare (încărcați manual sau porniți camera).";
+                loaderMobile.style.color = "#00bfff";
+            }
         };
         imgM1.src = "moneda-perspectiva.jpg";
         
@@ -1576,15 +1605,13 @@
             pornesteProcesareaAutomata();
         };
         imgM2.onerror = () => {
-            loaderMobile.textContent = "❌ Nu s-a putut descărca moneda-front.jpg de pe server.";
-            loaderMobile.style.color = "#ff073a";
+            console.warn("Imaginea moneda-front.jpg nu a fost găsită pe server. Se va folosi template-ul generat automat.");
         };
         imgM2.src = "moneda-front.jpg";
     });
 
     btnInchideRezultatMobile.addEventListener('click', () => {
         resultOverlayMobile.style.display = 'none';
-        document.querySelector('.desktop-container').style.display = 'block'; // Permitem vizualizarea tabloului de bord
     });
 </script>
 </body>

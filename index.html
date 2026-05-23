@@ -165,21 +165,21 @@
             .viewfinder-circle-mobile {
                 width: 260px;
                 height: 260px;
-                border: 3px dashed rgba(255, 7, 58, 0.6);
+                border: 3px dashed rgba(255, 7, 58, 0.7);
                 border-radius: 50%;
                 position: relative;
-                box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+                box-shadow: 0 0 0 9999px rgba(0,0,0,0.65);
                 transition: border-color 0.3s;
             }
 
             .viewfinder-circle-mobile.calibrating {
-                border-color: #ffc107;
-                animation: pulse-mobile 1s infinite alternate;
+                border-color: #39ff14;
+                animation: pulse-mobile 0.8s infinite alternate;
             }
 
             @keyframes pulse-mobile {
                 from { transform: scale(1); }
-                to { transform: scale(1.04); }
+                to { transform: scale(1.03); }
             }
 
             .status-box-mobile {
@@ -188,7 +188,7 @@
                 background: rgba(0,0,0,0.9);
                 padding: 12px 24px;
                 border-radius: 20px;
-                font-size: 14px;
+                font-size: 13px;
                 font-weight: 600;
                 border: 1px solid #2d3748;
                 pointer-events: none;
@@ -258,8 +258,8 @@
 
         <div class="control-section">
             <div class="slider-box">
-                <label for="sensibilitate">Prag Filtrare Roșu (Sensibilitate): <span id="valSensibilitate">120</span></label>
-                <input type="range" id="sensibilitate" min="10" max="240" value="120" style="width: 100%;">
+                <label for="sensibilitate">Prag Filtrare Roșu (Sensibilitate): <span id="valSensibilitate">110</span></label>
+                <input type="range" id="sensibilitate" min="10" max="240" value="110" style="width: 100%;">
             </div>
         </div>
 
@@ -346,7 +346,7 @@
         <div class="hud-overlay-mobile">
             <div id="viewfinderMobile" class="viewfinder-circle-mobile"></div>
         </div>
-        <div id="statusTextMobile" class="status-box-mobile">Apropiați moneda și aliniați desenul în cerc...</div>
+        <div id="statusTextMobile" class="status-box-mobile">Aliniați perfect moneda în cercul roșu...</div>
     </div>
 
     <div id="resultOverlayMobile" class="result-overlay-mobile">
@@ -439,17 +439,6 @@
     const STATE_CAPTURING = 3;
     let currentState = STATE_SCANNING;
 
-    // Canvas de analiză a cadrelor live
-    let analysisCanvas = document.createElement('canvas');
-    let analysisCtx = analysisCanvas.getContext('2d');
-
-    // Activăm afișarea textului în slider-ul desktop
-    if (sliderSensibilitate) {
-        sliderSensibilitate.addEventListener('input', () => { 
-            valSensibilitate.textContent = sliderSensibilitate.value; 
-        });
-    }
-
     // --- FUNCTIE DE CONVERSIE RGB LA HSV --- [2]
     function rgbToHsv(r, g, b) {
         r /= 255; g /= 255; b /= 255;
@@ -458,7 +447,7 @@
         const d = max - min;
         s = max === 0 ? 0 : d / max;
         if (max === min) {
-            h = 0; // acromatic
+            h = 0; 
         } else {
             switch (max) {
                 case r: h = (g - b) / d + (g < b ? 6 : 0); break;
@@ -473,112 +462,89 @@
     // --- CALCULATOR ADAPTIV REDNESS IN SPATIUL HSV --- [2]
     function calculeazaRednessHSV(r, g, b) {
         const hsv = rgbToHsv(r, g, b);
-        
-        // Distanța ciclică față de unghiul 0 (roșu pur)
         let hDist = hsv.h > 180 ? 360 - hsv.h : hsv.h;
         
-        // Permitem o plajă largă de nuanțe de roșu (de la nuanțe calde/portocalii până la magenta/rece: hDist < 35)
-        // Eliminăm zgomotul din zonele gri, albe sau foarte întunecate prin praguri pe S și V
+        // Plajă lărgită pentru a detecta de la roșu cărămiziu/portocaliu la nuanțe reci/roz-magenta [2]
         if (hDist < 35 && hsv.s > 0.15 && hsv.v > 0.12) {
-            let nuanțăWeight = 1.0 - (hDist / 35);
+            let nuantaWeight = 1.0 - (hDist / 35);
             let satWeight = (hsv.s - 0.15) / (1.0 - 0.15);
             let valWeight = (hsv.v - 0.12) / (1.0 - 0.12);
-            
-            // Evaluăm intensitatea roșului pe o scară de la 0 la 255
-            return Math.min(1.0, nuanțăWeight * 1.5) * satWeight * valWeight * 255;
+            return Math.min(1.0, nuantaWeight * 1.5) * satWeight * valWeight * 255;
         }
         return 0;
     }
 
-    // --- ALGORITM AUTO-REGLAJ BRIGHTNESS, CONTRAST ȘI CORECȚIE GAMMA --- [1]
-    function autoReglajContrastLumina(pixels, w, h) {
+    // --- ALGORITM ADAPTIV AUTO-REGLAJ CONCENTRAT DOAR PE ZONA VIZORULUI (MONEDĂ) --- [1]
+    function autoReglajContrastLuminaViewfinder(pixels, w, h, cx, cy, r) {
         let minL = 255, maxL = 0;
         let sumL = 0, count = 0;
-        const pas = 4; // Eșantionăm 1 din 16 pixeli pentru viteză de calcul
+        const r2 = r * r;
 
-        for (let i = 0; i < w * h * 4; i += 4 * pas) {
-            const r = pixels[i];
-            const g = pixels[i+1];
-            const b = pixels[i+2];
-            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-            
-            if (luma < minL) minL = luma;
-            if (luma > maxL) maxL = luma;
-            sumL += luma;
-            count++;
+        // Eșantionăm lumina doar în interiorul cercului în care se află fizic moneda
+        for (let y = Math.floor(cy - r); y < Math.ceil(cy + r); y += 4) {
+            if (y < 0 || y >= h) continue;
+            for (let x = Math.floor(cx - r); x < Math.ceil(cx + r); x += 4) {
+                if (x < 0 || x >= w) continue;
+                
+                const dy = y - cy;
+                const dx = x - cx;
+                if (dx*dx + dy*dy <= r2) {
+                    const idx = (y * w + x) * 4;
+                    const luma = 0.299 * pixels[idx] + 0.587 * pixels[idx+1] + 0.114 * pixels[idx+2];
+                    if (luma < minL) minL = luma;
+                    if (luma > maxL) maxL = luma;
+                    sumL += luma;
+                    count++;
+                }
+            }
         }
+
+        if (count === 0) return;
         const medieLuma = sumL / count;
 
-        // Dacă imaginea are mult highlight (luminozitate medie > 155), aplicăm corecție Gamma
         let gamma = 1.0;
-        if (medieLuma > 155) {
-            gamma = 1.4; // Întunecă zonele luminate/supraexpuse și reține detaliile din highlights [1]
+        if (medieLuma > 150) {
+            gamma = 1.5; // Corectăm zonele arse de bliț/highlights [1]
         } else if (medieLuma < 85) {
-            gamma = 0.75; // Luminează zonele întunecate
+            gamma = 0.75; 
         }
 
         const range = maxL - minL || 1;
         for (let i = 0; i < w * h * 4; i += 4) {
             for (let c = 0; c < 3; c++) {
                 let val = pixels[i + c];
-                
-                // 1. Întindere de contrast (Contrast stretching) [1]
                 val = ((val - minL) / range) * 255;
                 val = Math.max(0, Math.min(255, val));
-                
-                // 2. Aplicare corecție Gamma bazată pe highlights [1]
                 val = 255 * Math.pow(val / 255, gamma);
                 pixels[i + c] = Math.round(val);
             }
         }
     }
 
-    // --- Calcule geometrice pentru sliderele desktop ---
-    function recalculatePuncteDinParametri(cx, cy, rx, ry, rotation) {
-        return [
-            { x: cx - rx * Math.cos(rotation), y: cy - rx * Math.sin(rotation) }, // Stânga
-            { x: cx - ry * Math.sin(rotation), y: cy + ry * Math.cos(rotation) }, // Jos
-            { x: cx + rx * Math.cos(rotation), y: cy + rx * Math.sin(rotation) }, // Dreapta
-            { x: cx + ry * Math.sin(rotation), y: cy - ry * Math.cos(rotation) }  // Sus
-        ];
-    }
-
-    function aplicaAjustariM1() {
-        if (!imgDesen || !paramsM1.rx) return;
-        const cx_adj = paramsM1.cx + parseFloat(m1_x.value);
-        const cy_adj = paramsM1.cy + parseFloat(m1_y.value);
-        const rx_adj = paramsM1.rx * (parseFloat(m1_s.value) / 100);
-        const ry_adj = paramsM1.ry * (parseFloat(m1_s.value) / 100);
+    // --- CORESPONDENȚĂ COORDONATE ECRAN -> REZOLUȚIE FOTO NATIVĂ (OBJECT-FIT COVER) --- [3]
+    function screenToVideo(sx, sy, screenW, screenH, vidW, vidH) {
+        const screenRatio = screenW / screenH;
+        const vidRatio = vidW / vidH;
+        let scale, xOffset = 0, yOffset = 0;
         
-        puncteSelectate = recalculatePuncteDinParametri(cx_adj, cy_adj, rx_adj, ry_adj, paramsM1.rotation);
-        randeazaSelectie();
-    }
-
-    function aplicaAjustariM2() {
-        if (!imgCoalaGoala || !paramsM2.rx) return;
-        const cx_adj = paramsM2.cx + parseFloat(m2_x.value);
-        const cy_adj = paramsM2.cy + parseFloat(m2_y.value);
-        const rx_adj = paramsM2.rx * (parseFloat(m2_s.value) / 100);
-        const ry_adj = paramsM2.ry * (parseFloat(m2_s.value) / 100);
+        if (vidRatio > screenRatio) {
+            scale = screenH / vidH;
+            xOffset = (vidW * scale - screenW) / 2;
+        } else {
+            scale = screenW / vidW;
+            yOffset = (vidH * scale - screenH) / 2;
+        }
         
-        puncteCoala = recalculatePuncteDinParametri(cx_adj, cy_adj, rx_adj, ry_adj, paramsM2.rotation);
-        randeazaSelectieCoala();
+        return {
+            x: (sx + xOffset) / scale,
+            y: (sy + yOffset) / scale
+        };
     }
 
-    if (m1_x) {
-        m1_x.addEventListener('input', aplicaAjustariM1);
-        m1_y.addEventListener('input', aplicaAjustariM1);
-        m1_s.addEventListener('input', aplicaAjustariM1);
-        m2_x.addEventListener('input', aplicaAjustariM2);
-        m2_y.addEventListener('input', aplicaAjustariM2);
-        m2_s.addEventListener('input', aplicaAjustariM2);
-    }
-
-    // --- ALGORITM MAGIC WAND (FLOOD FILL) PENTRU DETECȚIE AUTOMATĂ ---
+    // --- ALGORITM MAGIC WAND (FLOOD FILL) PENTRU DETECȚIE AUTOMATĂ DESKTOP ---
     function detecteazaMonedaMagicWand(img, isPerspective) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-        
         const imgW = img.naturalWidth || img.width || 600;
         const imgH = img.naturalHeight || img.height || 600;
         
@@ -616,17 +582,10 @@
         }
         
         const threshold = avgBorderLuma + (maxL - avgBorderLuma) * 0.40;
-        
         const visited = new Uint8Array(sizeW * sizeH);
         const queue = [];
         
-        const corners = [
-            [0, 0],
-            [sizeW - 1, 0],
-            [0, sizeH - 1],
-            [sizeW - 1, sizeH - 1]
-        ];
-        
+        const corners = [[0, 0], [sizeW - 1, 0], [0, sizeH - 1], [sizeW - 1, sizeH - 1]];
         corners.forEach(([cx, cy]) => {
             const idx = cy * sizeW + cx;
             visited[idx] = 1;
@@ -639,18 +598,14 @@
         
         while (head < queue.length) {
             const curr = queue[head++];
-            
             for (let i = 0; i < 4; i++) {
                 const nx = curr.x + dx[i];
                 const ny = curr.y + dy[i];
-                
                 if (nx >= 0 && nx < sizeW && ny >= 0 && ny < sizeH) {
                     const nidx = ny * sizeW + nx;
-                    if (visited[nidx] === 0) {
-                        if (lumaList[nidx] < threshold) {
-                            visited[nidx] = 1;
-                            queue.push({ x: nx, y: ny });
-                        }
+                    if (visited[nidx] === 0 && lumaList[nidx] < threshold) {
+                        visited[nidx] = 1;
+                        queue.push({ x: nx, y: ny });
                     }
                 }
             }
@@ -658,7 +613,6 @@
         
         const coinMask = new Uint8Array(sizeW * sizeH);
         let m00 = 0, m10 = 0, m01 = 0;
-        
         for (let i = 0; i < sizeW * sizeH; i++) {
             if (visited[i] === 0) {
                 coinMask[i] = 1;
@@ -675,19 +629,18 @@
             const ry = isPerspective ? rx * 0.7 : rx;
             return [
                 { x: cx - rx, y: cy }, 
-                { x: cx,      y: cy + ry }, // Jos (1) [3]
+                { x: cx,      y: cy + ry }, 
                 { x: cx + rx, y: cy }, 
-                { x: cx,      y: cy - ry }  // Sus (3) [3]
+                { x: cx,      y: cy - ry }
             ];
         };
 
         if (m00 < 100) {
-            return { puncte: defaultPoints(), optimalThreshold: 120, mask: null, maskW: sizeW, maskH: sizeH };
+            return { puncte: defaultPoints(), optimalThreshold: 110, mask: null, maskW: sizeW, maskH: sizeH };
         }
         
         const xc = m10 / m00;
         const yc = m01 / m00;
-        
         let mu20 = 0, mu02 = 0, mu11 = 0;
         let sumCoinLuma = 0;
         let countCoinLuma = 0;
@@ -701,7 +654,6 @@
                     mu20 += dx * dx;
                     mu02 += dy * dy;
                     mu11 += dx * dy;
-
                     const luma = lumaList[idx];
                     if (luma > minL + (maxL - minL) * 0.25) {
                         sumCoinLuma += luma;
@@ -721,8 +673,6 @@
         
         const a = 2 * Math.sqrt(lambda1);
         const b = 2 * Math.sqrt(lambda2);
-        
-        // RECONSTRUIREA MATEMATICĂ A UNGHIULUI ELIPSEI DE PERSPECTIVĂ [3]
         const theta = 0.5 * Math.atan2(2 * mu11_prime, mu20_prime - mu02_prime);
         
         const scaleFactor = 1 / scale;
@@ -734,33 +684,14 @@
         const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
         const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
 
-        // Maparea punctelor în ordinea orară a momentelor cu ecuația trigonometrică originală [3]
         const puncte = [
-            { x: xc_orig - a_orig * Math.cos(theta), y: yc_orig - a_orig * Math.sin(theta) }, // Stânga (0)
-            { x: xc_orig - b_orig * Math.sin(theta), y: yc_orig + b_orig * Math.cos(theta) }, // Jos (1)
-            { x: xc_orig + a_orig * Math.cos(theta), y: yc_orig + a_orig * Math.sin(theta) }, // Dreapta (2)
-            { x: xc_orig + b_orig * Math.sin(theta), y: yc_orig - b_orig * Math.cos(theta) }  // Sus (3)
+            { x: xc_orig - a_orig * Math.cos(theta), y: yc_orig - a_orig * Math.sin(theta) }, 
+            { x: xc_orig - b_orig * Math.sin(theta), y: yc_orig + b_orig * Math.cos(theta) }, 
+            { x: xc_orig + a_orig * Math.cos(theta), y: yc_orig + a_orig * Math.sin(theta) }, 
+            { x: xc_orig + b_orig * Math.sin(theta), y: yc_orig - b_orig * Math.cos(theta) }
         ];
 
         return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };
-    }
-
-    // --- Extragere parametri elipsă ---
-    function getEllipseParams(pts) {
-        if (!pts || pts.length < 4) return { cx: 0, cy: 0, rx: 0, ry: 0, rotation: 0 };
-        const p1 = pts[0];
-        const p2 = pts[1];
-        const p3 = pts[2];
-        const p4 = pts[3];
-
-        const cx = (p1.x + p2.x + p3.x + p4.x) / 4;
-        const cy = (p1.y + p2.y + p3.y + p4.y) / 4;
-
-        const rx = Math.hypot(p3.x - p1.x, p3.y - p1.y) / 2;
-        const ry = Math.hypot(p4.x - p2.x, p4.y - p2.y) / 2;
-        const rotation = 0;
-
-        return { cx, cy, rx, ry, rotation };
     }
 
     // --- Cache pixeli originali ai Monedei 1 ---
@@ -774,17 +705,17 @@
         const tempCtx = tempCanvas.getContext('2d');
         tempCtx.drawImage(imgDesen, 0, 0);
         
-        // 1. Citire pixeli
         const imgData = tempCtx.getImageData(0, 0, cachedSrcW, cachedSrcH);
         
-        // 2. Aplicare reglaj de luminozitate și contrast pe fișierele de pe disc [1]
-        autoReglajContrastLumina(imgData.data, cachedSrcW, cachedSrcH);
+        // Pe desktop, pentru că avem imaginea întreagă, aplicăm un reglaj global simplificat [1]
+        const range = 255;
+        autoReglajContrastLuminaViewfinder(imgData.data, cachedSrcW, cachedSrcH, cachedSrcW/2, cachedSrcH/2, Math.min(cachedSrcW, cachedSrcH)/2);
         tempCtx.putImageData(imgData, 0, 0);
         
         cachedSrcPixels = imgData.data;
     }
 
-    // --- PROCEDURA DE ÎNCĂRCARE LOCALĂ MONEDA 1 ---
+    // --- INCARCARE DESKTOP ---
     if (incarcaDesen) {
         incarcaDesen.addEventListener('change', (e) => {
             if (!e.target.files || !e.target.files[0]) return;
@@ -814,8 +745,8 @@
                 m1_y.value = 0;
                 m1_s.value = 100;
 
-                sliderSensibilitate.value = 120; // Valoare neutră optimă pentru noul sistem HSV [2]
-                valSensibilitate.textContent = 120;
+                sliderSensibilitate.value = 110; 
+                valSensibilitate.textContent = 110;
 
                 cacheSursaPixeli();
                 randeazaSelectie();
@@ -903,20 +834,16 @@
 
     function randeazaGeometrieElipsa(ctxSel, puncte, img, dispW, dispH, culoare) {
         if (!puncte || puncte.length !== 4) return;
-
         const dPts = puncte.map(p => ({
             x: (p.x / img.naturalWidth) * dispW,
             y: (p.y / img.naturalHeight) * dispH
         }));
-        
         const params = getEllipseParams(dPts);
-        
         ctxSel.strokeStyle = culoare;
         ctxSel.lineWidth = 3;
         ctxSel.beginPath();
         ctxSel.ellipse(params.cx, params.cy, params.rx, params.ry, params.rotation, 0, 2 * Math.PI);
         ctxSel.stroke();
-        
         ctxSel.fillStyle = culoare + '1a'; 
         ctxSel.fill();
     }
@@ -1009,14 +936,13 @@
         return 0.0;
     }
 
-    // --- PROCESUL DE TRANSFER DESKTOP REPARAT (MANUAL MULTIPLY CU ADAPTARE HSV) --- [2]
+    // --- PROCESUL DE TRANSFER DESKTOP REPARAT (MANUAL MULTIPLY) ---
     if (butonTransfer) {
         butonTransfer.addEventListener('click', () => {
             if (!imgDesen || !imgCoalaGoala) {
                 alert("Eroare: Ambele imagini trebuie încărcate!");
                 return;
             }
-
             butonTransfer.textContent = "⌛ Se procesează...";
             butonTransfer.disabled = true;
 
@@ -1043,7 +969,6 @@
                     const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
                     const dstPoints = puncteCoala.map(p => [p.x, p.y]);
 
-                    // Homografia calculează automat scalarea proporțională a coordonatelor [1]
                     const H = getHomographyMatrix(dstPoints, srcPoints);
                     const h00 = H[0], h01 = H[1], h02 = H[2];
                     const h10 = H[3], h11 = H[4], h12 = H[5];
@@ -1087,12 +1012,10 @@
                                         let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                         let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                        // Detecție de nuanțe de roșu pe baza modelului HSV robust [2]
                                         let rednessValue = calculeazaRednessHSV(r, g, b);
 
                                         let alpha = 0;
                                         if (rednessValue > pragSensibilitate) {
-                                            // Evaluare progresivă a canalului alfa [2]
                                             alpha = (rednessValue - pragSensibilitate) / (255 - pragSensibilitate);
                                         }
 
@@ -1116,55 +1039,16 @@
                             }
                         }
                     }
-
                     ctx.putImageData(dstImgData, 0, 0);
                 } catch (err) {
                     console.error("Eroare transfer desktop:", err);
-                    alert("Eroare la procesarea imaginilor de pe PC. Verificați alinierea!");
+                    alert("Eroare la procesarea imaginilor. Verificați alinierea!");
                 }
-
                 butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul";
                 butonTransfer.disabled = false;
             }, 50);
         });
     }
-
-    // --- LOGICA DE CORESPONDENȚĂ ZOOM ȘI FULLSCREEN DESKTOP ---
-    if (canvas) {
-        canvas.addEventListener('click', () => {
-            imgFullscreen.src = canvas.toDataURL('image/png');
-            imgFullscreen.className = 'img-fit'; 
-            isZoomed = false;
-            fullscreenOverlay.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-        });
-
-        imgFullscreen.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            if (isZoomed) {
-                imgFullscreen.className = 'img-fit';
-                isZoomed = false;
-            } else {
-                imgFullscreen.className = 'img-zoom100';
-                isZoomed = true;
-            }
-        });
-
-        fullscreenOverlay.addEventListener('click', () => {
-            fullscreenOverlay.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            imgFullscreen.src = '';
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && fullscreenOverlay.style.display === 'block') {
-                fullscreenOverlay.style.display = 'none';
-                document.body.style.overflow = 'auto';
-                imgFullscreen.src = '';
-            }
-        });
-    }
-
 
     // ==========================================
     // === SCRIPT ȘI LOGICĂ CAMERĂ AUTOMATĂ MOBIL ===
@@ -1180,19 +1064,6 @@
     let mascaDestMobile = null;
     let mascaDestWMobile = 3024;
     let mascaDestHMobile = 4032;
-
-    function intraInFullscreenMobile() {
-        const docEl = document.documentElement;
-        try {
-            if (docEl.requestFullscreen) {
-                docEl.requestFullscreen().catch(() => {});
-            } else if (docEl.webkitRequestFullscreen) {
-                docEl.webkitRequestFullscreen();
-            }
-        } catch (err) {
-            console.warn("Fullscreen-ul nu a putut fi declanșat:", err);
-        }
-    }
 
     imgCoalaGoalaMobile.onload = () => {
         const rezu = detecteazaMonedaMagicWand(imgCoalaGoalaMobile, false);
@@ -1227,9 +1098,7 @@
             const profileConstraints = [
                 { video: { facingMode: 'environment', width: { ideal: 3024 }, height: { ideal: 4032 } } },
                 { video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } } },
-                { video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 1280 } } },
-                { video: { facingMode: 'environment' } },
-                { video: true }
+                { video: { facingMode: 'environment' } }
             ];
 
             let lastError = null;
@@ -1240,13 +1109,12 @@
                     break; 
                 } catch (err) {
                     lastError = err;
-                    console.warn("Profilul de cameră " + i + " a eșuat. Încercăm următorul...", err);
-                    await new Promise(resolve => setTimeout(resolve, 250));
+                    await new Promise(resolve => setTimeout(resolve, 200));
                 }
             }
 
             if (!stream) {
-                throw new Error(lastError ? lastError.toString() : "Toate constrângerile camerei spate au fost respinse.");
+                throw new Error(lastError ? lastError.toString() : "Camera spate nu a fost detectată.");
             }
             
             videoElementMobile.srcObject = stream;
@@ -1258,17 +1126,15 @@
             currentState = STATE_SCANNING;
             
             viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "Apropiați moneda și aliniați desenul în cerc...";
+            statusTextMobile.textContent = "Aliniați perfect moneda în cercul roșu...";
             statusTextMobile.style.color = "#00bfff";
             
             requestAnimationFrame(analizaFrameMobile);
         } catch (e) {
             const statusMobile = document.getElementById('statusTextMobile');
             if (statusMobile) {
-                statusMobile.innerHTML = "❌ Eroare cameră: " + e.message + "<br><span style='font-size:11px; color:#cbd5e0; line-height: 1.4; display:block; margin-top:5px;'>Asigurați-vă că accesați linkul securizat HTTPS pe mobil, iar permisiunea din browser este activă!</span>";
+                statusMobile.innerHTML = "❌ Eroare cameră: " + e.message;
                 statusMobile.style.color = "#ff073a";
-            } else {
-                alert("Eroare cameră: " + e.message + "\nAsigurați-vă că rulați pe HTTPS!");
             }
         }
     }
@@ -1295,11 +1161,10 @@
         pornesteFluxCameraMobile(); 
     });
 
-    // --- ALGORITM REAL-TIME CLARITATE ROȘIE MOBIL ---
+    // --- ANALIZĂ LIVE PE CADRU (PENTRU DEClanȘARE ȘI AUTO-FOCALIZARE) ---
     function calculeazaClaritateRosieMobile(ctx, w, h) {
         const imgData = ctx.getImageData(0, 0, w, h);
         const pixels = imgData.data;
-        
         let sumGrad = 0;
         let countRed = 0;
         
@@ -1310,20 +1175,13 @@
                 const g = pixels[idx+1];
                 const b = pixels[idx+2];
                 
-                // Căutăm pixeli roșii saturați folosind modelul robust HSV [2]
                 let rednessValue = calculeazaRednessHSV(r, g, b);
-                if (rednessValue > 90) {
+                if (rednessValue > 95) {
                     countRed++;
-                    
                     const idxRight = idx + 4;
                     const idxDown = idx + w * 4;
-                    
-                    const rRight = pixels[idxRight];
-                    const rDown = pixels[idxDown];
-                    
-                    const gradX = Math.abs(r - rRight);
-                    const gradY = Math.abs(r - rDown);
-                    
+                    const gradX = Math.abs(r - pixels[idxRight]);
+                    const gradY = Math.abs(r - pixels[idxDown]);
                     sumGrad += (gradX + gradY);
                 }
             }
@@ -1336,7 +1194,6 @@
         };
     }
 
-    // --- LOOP FRAME MOBIL ---
     async function analizaFrameMobile() {
         if (!isScanning || currentState === STATE_CAPTURING) return;
 
@@ -1344,7 +1201,6 @@
             const size = 150;
             analysisCanvas.width = size;
             analysisCanvas.height = size;
-            
             const sx = (videoElementMobile.videoWidth - size) / 2;
             const sy = (videoElementMobile.videoHeight - size) / 2;
             analysisCtx.drawImage(videoElementMobile, sx, sy, size, size, 0, 0, size, size);
@@ -1352,75 +1208,29 @@
             const metrice = calculeazaClaritateRosieMobile(analysisCtx, size, size);
             
             if (currentState === STATE_SCANNING) {
-                if (metrice.ratio > 0.015) { 
+                if (metrice.ratio > 0.012) { 
                     currentState = STATE_CALIBRATING;
                     viewfinderMobile.className = 'viewfinder-circle-mobile calibrating';
-                    statusTextMobile.textContent = "Marcaj roșu detectat! Mențineți telefonul stabil...";
-                    statusTextMobile.style.color = "#ffc107";
+                    statusTextMobile.textContent = "Mențineți poziția nemișcată...";
+                    statusTextMobile.style.color = "#39ff14";
                     
-                    setTimeout(declanseazaCapturaFotoMobile, 1800); 
+                    // Se acordă o secundă senzorului pentru stabilizarea focalizării
+                    setTimeout(declanseazaCapturaFotoMobile, 1000); 
                 }
             }
         }
-        
         requestAnimationFrame(analizaFrameMobile);
     }
 
-    // --- ASISTENTUL DE DETECȚIE RADIALĂ DE MARGINE PENTRU AUTO-SCALARE MOBIL --- [3]
-    function gasesteMargineTrue(startX, startY, dx, dy, imgData, w, h) {
-        const pixels = imgData.data;
-        let cx = startX;
-        let cy = startY;
-        
-        let insideCoin = true;
-        let darkCount = 0;
-        const requiredDarkWidth = 80; 
-        
-        let edgeX = cx;
-        let edgeY = cy;
-        
-        for (let step = 0; step < 1800; step++) {
-            cx += dx;
-            cy += dy;
-            
-            if (cx < 0 || cx >= w || cy < 0 || cy >= h) {
-                break;
-            }
-            
-            const idx = (Math.round(cy) * w + Math.round(cx)) * 4;
-            const r = pixels[idx];
-            const g = pixels[idx+1];
-            const b = pixels[idx+2];
-            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-            
-            if (luma < 90) { 
-                darkCount++;
-                if (darkCount > requiredDarkWidth && insideCoin) {
-                    edgeX = cx - dx * requiredDarkWidth;
-                    edgeY = cy - dy * requiredDarkWidth;
-                    insideCoin = false;
-                    break;
-                }
-            } else {
-                darkCount = 0; 
-            }
-        }
-        
-        if (insideCoin) {
-            return { x: startX + dx * 1000, y: startY + dy * 1000 };
-        }
-        return { x: edgeX, y: edgeY };
-    }
-
-    // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ ---
+    // --- CAPTURĂ FOTO ȘI WARPING BAZAT PE PROIECȚIA VIZORULUI --- [3]
     function declanseazaCapturaFotoMobile() {
         try {
             currentState = STATE_CAPTURING;
-            statusTextMobile.textContent = "Se procesează și se reglează lumina...";
-            statusTextMobile.style.color = "#39ff14"; 
+            statusTextMobile.textContent = "Se procesează imaginea...";
             
-            const capW = 3024;
-            const capH = 4032;
+            const capW = videoElementMobile.videoWidth;
+            const capH = videoElementMobile.videoHeight;
+            
             const capturedCanvas = document.createElement('canvas');
             capturedCanvas.width = capW;
             capturedCanvas.height = capH;
@@ -1429,46 +1239,36 @@
             
             const imgData = capCtx.getImageData(0, 0, capW, capH);
             
-            // APLICARE ADAPTARE DINAMICĂ DE LUMINOZITATE ȘI CONTRAST (CORECTARE HIGHLIGHTS) [1]
-            autoReglajContrastLumina(imgData.data, capW, capH);
+            // 1. CALCULĂM COORDONATELE EXACTE ALE VIZORULUI DE PE ECRAN PE REZOLUȚIA CAPTURII [3]
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+            
+            const vfCenterX = screenW / 2;
+            const vfCenterY = screenH / 2;
+            const vfRadius = 130; // Corespunde cu raza viewfinder-ului de 260px / 2
+
+            // Calculăm centrul și raza în rezoluția reală a imaginii
+            const centerVid = screenToVideo(vfCenterX, vfCenterY, screenW, screenH, capW, capH);
+            const refPtVid = screenToVideo(vfCenterX + vfRadius, vfCenterY, screenW, screenH, capW, capH);
+            const razaVid = Math.hypot(refPtVid.x - centerVid.x, refPtVid.y - centerVid.y);
+
+            // 2. APLICĂM REGLAJUL DE LUMINĂ EXCLUSIV PE PIXELII DIN INTERIORUL VIZORULUI [1]
+            autoReglajContrastLuminaViewfinder(imgData.data, capW, capH, centerVid.x, centerVid.y, razaVid);
             capCtx.putImageData(imgData, 0, 0);
 
-            // 1. RULĂM DETECTORUL RADIAL DE MARGINI ÎNAINTE DE PROCESARE [3]
-            const ptL = gasesteMargineTrue(1512, 2016, -1.5, 0, imgData, capW, capH);
-            const ptR = gasesteMargineTrue(1512, 2016, 1.5, 0, imgData, capW, capH);
-            const ptD = gasesteMargineTrue(1512, 2016, 0, 1.5, imgData, capW, capH);
-            const ptU = gasesteMargineTrue(1512, 2016, 0, -1.5, imgData, capW, capH);
+            // Proiectăm cele 4 puncte de ghidaj ortogonale ale vizorului [3]
+            const ptLVid = screenToVideo(vfCenterX - vfRadius, vfCenterY, screenW, screenH, capW, capH);
+            const ptDVid = screenToVideo(vfCenterX, vfCenterY + vfRadius, screenW, screenH, capW, capH);
+            const ptRVid = screenToVideo(vfCenterX + vfRadius, vfCenterY, screenW, screenH, capW, capH);
+            const ptUVid = screenToVideo(vfCenterX, vfCenterY - vfRadius, screenW, screenH, capW, capH);
             
-            const rH = Math.abs(ptR.x - ptL.x) / 2;
-            const rV = Math.abs(ptD.y - ptU.y) / 2;
-            const razaMedie = (rH + rV) / 2; 
-            
-            // 2. CURĂȚARE COȘMETICĂ DINAMICĂ A FUNDALULUI (MASCARE AUTOMATĂ ADAPTIVĂ) [3]
-            const cleanCtx = capturedCanvas.getContext('2d');
-            cleanCtx.globalCompositeOperation = 'destination-over';
-            cleanCtx.fillStyle = '#ffffff';
-            cleanCtx.fillRect(0, 0, capW, capH);
-            cleanCtx.globalCompositeOperation = 'source-over';
-            
-            const gradient = cleanCtx.createRadialGradient(1512, 2016, razaMedie + 15, 1512, 2016, razaMedie + 65);
-            gradient.addColorStop(0, 'rgba(255,255,255,0)');
-            gradient.addColorStop(1, 'rgba(255,255,255,1)');
-            cleanCtx.fillStyle = gradient;
-            cleanCtx.beginPath();
-            cleanCtx.arc(1512, 2016, capW, 0, 2 * Math.PI);
-            cleanCtx.fill();
+            const puncteSelectateMobile = [ptLVid, ptDVid, ptRVid, ptUVid];
 
             opresteFluxCameraMobile();
 
-            const srcW = capturedCanvas.width;
-            const srcH = capturedCanvas.height;
-            const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
-            
-            const rezu = detecteazaMonedaMagicWand(capturedCanvas, true);
-            const puncteSelectateMobile = rezu.puncte;
-            const mascaSursaMobile = rezu.mask;
-            const mascaSursaWMobile = rezu.maskW;
-            const mascaSursaHMobile = rezu.maskH;
+            const srcW = capW;
+            const srcH = capH;
+            const srcPixels = imgData.data;
             
             const latimeDest = imgCoalaGoalaMobile.naturalWidth || imgCoalaGoalaMobile.width || 3024;
             const inaltimeDest = imgCoalaGoalaMobile.naturalHeight || imgCoalaGoalaMobile.height || 4032;
@@ -1486,7 +1286,7 @@
             const srcPoints = puncteSelectateMobile.map(p => [p.x, p.y]);
             const dstPoints = puncteCoalaMobile.map(p => [p.x, p.y]);
             
-            // Homografia determină automat unghiul și raportul de scalare la destinație [1]
+            // Homografia proiectează acum precis cercul vizorului pe cercul de destinație, asigurând o scalare corectă [1]
             const H = getHomographyMatrix(dstPoints, srcPoints);
             const h00 = H[0], h01 = H[1], h02 = H[2];
             const h10 = H[3], h11 = H[4], h12 = H[5];
@@ -1499,14 +1299,27 @@
             const vMin = Math.max(0, Math.floor(Math.min(...ys)));
             const vMax = Math.min(inaltimeDest - 1, Math.ceil(Math.max(...ys)));
 
-            const pragSensibilitateMobile = 100; // Valoare adaptivă optimă pentru mobil în mod automat
+            const pragSensibilitateMobile = 100;
+
+            // Parametrii geometrici ai elipsei destinație și sursă, folosiți pentru mascare matematică rapidă
+            const baseParamsDst = getEllipseParams(puncteCoalaMobile);
+            const baseParamsSrc = getEllipseParams(puncteSelectateMobile);
+
+            const rxDst2 = baseParamsDst.rx * baseParamsDst.rx;
+            const ryDst2 = baseParamsDst.ry * baseParamsDst.ry;
+            const rxSrc2 = baseParamsSrc.rx * baseParamsSrc.rx;
+            const rySrc2 = baseParamsSrc.ry * baseParamsSrc.ry;
 
             for (let v = vMin; v <= vMax; v++) {
+                const dyDst = v - baseParamsDst.cy;
+                const dyDst2 = dyDst * dyDst;
+                
                 for (let u = uMin; u <= uMax; u++) {
-                    const destIdx = (v * latimeDest + u) * 4;
-                    const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
+                    const dxDst = u - baseParamsDst.cx;
+                    // Verificăm dacă suntem în interiorul monedei destinație
+                    if ((dxDst * dxDst) / rxDst2 + dyDst2 / ryDst2 <= 1.0) {
+                        const destIdx = (v * latimeDest + u) * 4;
 
-                    if (valMascaDest > 0.0) {
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;
@@ -1515,9 +1328,11 @@
                         const y0 = Math.floor(sy);
 
                         if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                            const valMascaSursa = getMaskValue(sx, sy, mascaSursaMobile, mascaSursaWMobile, mascaSursaHMobile, srcW, srcH);
-
-                            if (valMascaSursa > 0.0) {
+                            const dxSrc = sx - baseParamsSrc.cx;
+                            const dySrc = sy - baseParamsSrc.cy;
+                            
+                            // Verificăm dacă suntem în interiorul vizorului mapat în imaginea sursă
+                            if ((dxSrc * dxSrc) / rxSrc2 + (dySrc * dySrc) / rySrc2 <= 1.0) {
                                 const dx_s = sx - x0;
                                 const dy_s = sy - y0;
 
@@ -1530,7 +1345,6 @@
                                 let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                // Filtrarea cromatică a desenului roșu prin noul model HSV [2]
                                 let rednessValue = calculeazaRednessHSV(r, g, b);
 
                                 let alpha = 0;
@@ -1538,9 +1352,7 @@
                                     alpha = (rednessValue - pragSensibilitateMobile) / (255 - pragSensibilitateMobile);
                                 }
 
-                                const alphaFinal = alpha * valMascaSursa * valMascaDest;
-
-                                if (alphaFinal > 0.0) {
+                                if (alpha > 0.0) {
                                     const r_bg = dstPixels[destIdx];
                                     const g_bg = dstPixels[destIdx + 1];
                                     const b_bg = dstPixels[destIdx + 2];
@@ -1549,9 +1361,9 @@
                                     const g_blend = (g * g_bg) / 255;
                                     const b_blend = (b * b_bg) / 255;
 
-                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
-                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
-                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alpha;
+                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alpha;
+                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alpha;
                                 }
                             }
                         }
@@ -1564,16 +1376,16 @@
             imgRezultatFinalMobile.src = outputCanvas.toDataURL('image/png');
             resultOverlayMobile.style.display = 'flex';
         } catch (err) {
-            console.error("Eroare procesare mobil:", err);
+            console.error("Eroare procesare:", err);
             currentState = STATE_SCANNING;
             viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "Eroare detecție. Reîncercați încadrarea monedei...";
+            statusTextMobile.textContent = "A apărut o eroare. Reîncercați...";
             statusTextMobile.style.color = "#ff073a";
             pornesteFluxCameraMobile();
         }
     }
 
-    // --- ASISTENTUL DE ÎNCĂRCARE ȘI PROCESARE AUTOMATĂ DE PE SERVER --- [1]
+    // --- ASISTENTUL DE ÎNCĂRCARE AUTOMATĂ ---
     window.addEventListener('load', () => {
         const isMobile = window.innerWidth <= 768;
         if (!isMobile) {
@@ -1583,17 +1395,14 @@
 
         const imgM1 = new Image();
         const imgM2 = new Image();
-        
         let m1Loaded = false;
         let m2Loaded = false;
         
         function pornesteProcesareaAutomata() {
             if (!m1Loaded || !m2Loaded) return;
-            
             if (loaderMobile) {
-                loaderMobile.textContent = "⌛ Se procesează moneda-perspectiva.jpg...";
+                loaderMobile.textContent = "⌛ Se pregătesc monedele...";
             }
-            
             setTimeout(() => {
                 try {
                     const rezSursa = detecteazaMonedaMagicWand(imgM1, true);
@@ -1615,7 +1424,7 @@
                     tempCtx.drawImage(imgM1, 0, 0);
                     
                     const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                    autoReglajContrastLumina(imgData.data, tempCanvas.width, tempCanvas.height);
+                    autoReglajContrastLuminaViewfinder(imgData.data, tempCanvas.width, tempCanvas.height, tempCanvas.width/2, tempCanvas.height/2, Math.min(tempCanvas.width, tempCanvas.height)/2);
                     
                     cachedSrcPixels = imgData.data;
                     cachedSrcW = tempCanvas.width;
@@ -1625,36 +1434,26 @@
                     imgCoalaGoalaMobile = imgM2;
                     
                     if (loaderMobile) {
-                        loaderMobile.textContent = "Pregătit. Apăsați pe 'Pornește camera' pentru a scana sau încărcați fișiere manual.";
+                        loaderMobile.textContent = "Sistem pregătit. Apăsați pe 'Pornește camera' pentru a scana.";
                     }
                 } catch (e) {
-                    console.error("Eroare inițializare automată:", e);
-                    if (loaderMobile) {
-                        loaderMobile.innerHTML = "❌ Eșec detecție: " + e.toString() + "<br><span style='font-size:12px; color:#cbd5e0;'>Verificați fișierele de pe server.</span>";
-                        loaderMobile.style.color = "#ffc107";
-                    }
+                    console.error("Eroare inițializare:", e);
                 }
             }, 50);
         }
         
-        imgM1.onload = () => {
-            m1Loaded = true;
-            pornesteProcesareaAutomata();
-        };
+        imgM1.onload = () => { m1Loaded = true; pornesteProcesareaAutomata(); };
         imgM1.onerror = () => {
             if (loaderMobile) {
-                loaderMobile.textContent = "🔌 Sistem pregătit pentru utilizare (încărcați manual sau porniți camera).";
+                loaderMobile.textContent = "Sistem pregătit pentru utilizare.";
                 loaderMobile.style.color = "#00bfff";
             }
         };
         imgM1.src = "moneda-perspectiva.jpg";
         
-        imgM2.onload = () => {
-            m2Loaded = true;
-            pornesteProcesareaAutomata();
-        };
+        imgM2.onload = () => { m2Loaded = true; pornesteProcesareaAutomata(); };
         imgM2.onerror = () => {
-            console.warn("Imaginea moneda-front.jpg nu a fost găsită pe server.");
+            console.warn("moneda-front.jpg nu a fost găsită pe server.");
         };
         imgM2.src = "moneda-front.jpg";
     });

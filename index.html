@@ -435,6 +435,12 @@
     const STATE_CAPTURING = 3;
     let currentState = STATE_SCANNING;
 
+    let sharpnessHistory = [];
+    let bestFocusDistance = 0;
+    let bestSharpness = 0;
+    let calibrationSteps = [];
+    let currentStepIndex = 0;
+
     // Prăguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
@@ -1399,7 +1405,7 @@
                     const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie (auto-scalarea funcționează perfect acum datorită măștii adaptive) [3]
+                        // Mapare directă prin homografie
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;

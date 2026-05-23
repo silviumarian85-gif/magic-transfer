@@ -282,7 +282,7 @@
     </div>
     
     <label for="cameraNativaMobile" class="btn-start-mobile">📸 Fă poză Monedei 1 (Nativ)</label>
-    <input type="file" id="cameraNativaMobile" accept="image/*" capture="environment">
+    <input type="file" id="cameraNativaMobile" accept="image/*" capture="environment" style="display: none;">
 
     <div id="resultOverlayMobile" class="result-overlay-mobile">
         <span id="btnInchideRezultatMobile" class="close-btn-mobile">&times;</span>
@@ -453,6 +453,26 @@
                 pixels[i + c] = Math.round(val);
             }
         }
+    }
+
+    // --- CORESPONDENȚĂ COORDONATE ECRAN -> REZOLUȚIE FOTO NATIVĂ (OBJECT-FIT COVER) --- [3]
+    function screenToVideo(sx, sy, screenW, screenH, vidW, vidH) {
+        const screenRatio = screenW / screenH;
+        const vidRatio = vidW / vidH;
+        let scale, xOffset = 0, yOffset = 0;
+        
+        if (vidRatio > screenRatio) {
+            scale = screenH / vidH;
+            xOffset = (vidW * scale - screenW) / 2;
+        } else {
+            scale = screenW / vidW;
+            yOffset = (vidH * scale - screenH) / 2;
+        }
+        
+        return {
+            x: (sx + xOffset) / scale,
+            y: (sy + yOffset) / scale
+        };
     }
 
     // --- ALGORITM MAGIC WAND (FLOOD FILL) PENTRU DETECȚIE AUTOMATĂ ---
@@ -847,7 +867,7 @@
         return 0.0;
     }
 
-    // --- PROCESUL DE TRANSFER DESKTOP (MANUAL MULTIPLY) ---
+    // --- PROCESUL DE TRANSFER DESKTOP REPARAT (MANUAL MULTIPLY) ---
     if (butonTransfer) {
         butonTransfer.addEventListener('click', () => {
             if (!imgDesen || !imgCoalaGoala) {
@@ -885,7 +905,11 @@
                     const h10 = H[3], h11 = H[4], h12 = H[5];
                     const h20 = H[6], h21 = H[7], h22 = H[8];
 
+                    // LOGICĂ DE TRANZIȚIE STRÂNSĂ PENTRU INTENSITATE MAXIMĂ (DESKTOP) [1]
                     const pragSensibilitate = parseInt(sliderSensibilitate.value);
+                    const tranzitie = 25;
+                    const pragMinim = pragSensibilitate;
+                    const pragMaxim = Math.min(255, pragSensibilitate + tranzitie);
 
                     const xs = puncteCoala.map(p => p.x);
                     const ys = puncteCoala.map(p => p.y);
@@ -926,8 +950,10 @@
                                         let rednessValue = calculeazaRednessHSV(r, g, b);
 
                                         let alpha = 0;
-                                        if (rednessValue > pragSensibilitate) {
-                                            alpha = (rednessValue - pragSensibilitate) / (255 - pragSensibilitate);
+                                        if (rednessValue >= pragMaxim) {
+                                            alpha = 1.0; // Complet solid și opac
+                                        } else if (rednessValue > pragMinim) {
+                                            alpha = (rednessValue - pragMinim) / (pragMaxim - pragMinim); // Tranzitie fină
                                         }
 
                                         const alphaFinal = alpha * valMascaSursa * valMascaDest;
@@ -1010,7 +1036,6 @@
         mascaDestHMobile = rezu.maskH;
     };
     imgCoalaGoalaMobile.onerror = () => {
-        // În caz de eroare la descărcare, generăm un șablon virtual de 3024x4032 [1]
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 3024;
         tempCanvas.height = 4032;
@@ -1106,59 +1131,77 @@
             const srcW = capW;
             const srcH = capH;
             
-            const pragSensibilitateMobile = 100; // Sensibilitate optimă calibrată pentru spațiul HSV [2]
+            // LOGICĂ ADAPTIVĂ DE TRANZIȚIE PE MOBIL PENTRU EVITAREA IMAGINILOR ȘTERSE/FADATE [1]
+            const pragSensibilitateMobile = 110; // Prag minim robust de decupaj în spațiul HSV [2]
+            const tranzitieMobile = 25; // Lățime zonă de trecere (pixelii peste valoarea 135 devin 100% solizi)
+            const pragMaximMobile = Math.min(255, pragSensibilitateMobile + tranzitieMobile);
             
+            // Parametrii geometrici ai elipsei destinație și sursă, folosiți pentru mascare matematică rapidă
+            const baseParamsDst = getEllipseParams(puncteCoalaMobile);
+            const baseParamsSrc = getEllipseParams(puncteSelectateMobile);
+
+            const rxDst2 = baseParamsDst.rx * baseParamsDst.rx;
+            const ryDst2 = baseParamsDst.ry * baseParamsDst.ry;
+            const rxSrc2 = baseParamsSrc.rx * baseParamsSrc.rx;
+            const rySrc2 = baseParamsSrc.ry * baseParamsSrc.ry;
+
             for (let v = vMin; v <= vMax; v++) {
+                const dyDst = v - baseParamsDst.cy;
+                const dyDst2 = dyDst * dyDst;
+                
                 for (let u = uMin; u <= uMax; u++) {
-                    const destIdx = (v * latimeDest + u) * 4;
-                    const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
-                    
-                    if (valMascaDest > 0.0) {
+                    const dxDst = u - baseParamsDst.cx;
+                    // Verificăm dacă suntem în interiorul monedei destinație
+                    if ((dxDst * dxDst) / rxDst2 + dyDst2 / ryDst2 <= 1.0) {
+                        const destIdx = (v * latimeDest + u) * 4;
+
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;
-                        
+
                         const x0 = Math.floor(sx);
                         const y0 = Math.floor(sy);
-                        
+
                         if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                            const valMascaSursa = getMaskValue(sx, sy, mascaSursaMobile, mascaSursaWMobile, mascaSursaHMobile, srcW, srcH);
+                            const dxSrc = sx - baseParamsSrc.cx;
+                            const dySrc = sy - baseParamsSrc.cy;
                             
-                            if (valMascaSursa > 0.0) {
+                            // Verificăm dacă suntem în interiorul vizorului mapat în imaginea sursă
+                            if ((dxSrc * dxSrc) / rxSrc2 + (dySrc * dySrc) / rySrc2 <= 1.0) {
                                 const dx_s = sx - x0;
                                 const dy_s = sy - y0;
-                                
+
                                 const idx00 = (y0 * srcW + x0) * 4;
                                 const idx10 = idx00 + 4;
                                 const idx01 = idx00 + srcW * 4;
                                 const idx11 = idx01 + 4;
-                                
+
                                 let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
                                 let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
-                                
+
                                 // Filtrare cromatică de roșu pe baza HSV
                                 let rednessValue = calculeazaRednessHSV(r, g, b);
                                 
                                 let alpha = 0;
-                                if (rednessValue > pragSensibilitateMobile) {
-                                    alpha = (rednessValue - pragSensibilitateMobile) / (255 - pragSensibilitateMobile);
+                                if (rednessValue >= pragMaximMobile) {
+                                    alpha = 1.0; // Desenul roșu devine complet intens și solid [1]
+                                } else if (rednessValue > pragSensibilitateMobile) {
+                                    alpha = (rednessValue - pragSensibilitateMobile) / (pragMaximMobile - pragSensibilitateMobile); // Marginile se îmbină fin
                                 }
-                                
-                                const alphaFinal = alpha * valMascaSursa * valMascaDest;
-                                
-                                if (alphaFinal > 0.0) {
+
+                                if (alpha > 0.0) {
                                     const r_bg = dstPixels[destIdx];
                                     const g_bg = dstPixels[destIdx + 1];
                                     const b_bg = dstPixels[destIdx + 2];
-                                    
+
                                     const r_blend = (r * r_bg) / 255;
                                     const g_blend = (g * g_bg) / 255;
                                     const b_blend = (b * b_bg) / 255;
-                                    
-                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
-                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
-                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+
+                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alpha;
+                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alpha;
+                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alpha;
                                 }
                             }
                         }

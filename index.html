@@ -119,7 +119,7 @@
 
             .loader-box-mobile {
                 color: #00bfff;
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: 600;
                 text-align: center;
                 padding: 30px;
@@ -274,6 +274,17 @@
 </div>
 
 <script>
+    // --- SCUT GLOBAL DE ERORI PENTRU MONITORIZARE DIRECTĂ PE TELEFON --- [1]
+    window.onerror = function(message, source, lineno, colno, error) {
+        const loader = document.getElementById('loaderMobile');
+        if (loader) {
+            loader.innerHTML = "❌ Eroare JS detectată: <br><span style='color:#ff073a; font-family: monospace; font-size:12px;'>" + 
+                               message + " (Linia " + lineno + ")</span>";
+            loader.style.color = "#ff073a";
+        }
+        return false;
+    };
+
     // --- ELEMENTE DOM COMUNE ȘI DESKTOP ---
     const incarcaDesen = document.getElementById('incarcaDesen');
     const incarcaCoalaGoala = document.getElementById('incarcaCoalaGoala');
@@ -304,7 +315,7 @@
     const btnInchideRezultatMobile = document.getElementById('btnInchideRezultatMobile');
     const imgRezultatFinalMobile = document.getElementById('imgRezultatFinalMobile');
 
-    // State comun global
+    // State comun global (declarat cu let) [1]
     let imgDesen = null;
     let imgCoalaGoala = null;
     let urlDesen = null;
@@ -702,7 +713,6 @@
         randeazaGeometrieElipsa(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
     }
 
-    // --- REGENERARE MASCA COALĂ DE REFERINȚĂ MOBIL LA REZOLUȚIE 3024x4032 ---
     function randeazaSelectieCoala() {
         if (!imgCoalaGoala || !canvasSelectieCoala) return;
         const ctxSel = canvasSelectieCoala.getContext('2d');
@@ -1002,21 +1012,7 @@
     // === SCRIPT ȘI LOGICĂ CAMERĂ AUTOMATĂ MOBIL ===
     // ==========================================
 
-    function intraInFullscreenMobile() {
-        const el = document.documentElement;
-        if (el.requestFullscreen) {
-            el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) { /* Safari / iOS */
-            el.webkitRequestFullscreen();
-        } else if (el.mozRequestFullScreen) {
-            el.mozRequestFullScreen();
-        } else if (el.msRequestFullscreen) {
-            el.msRequestFullscreen();
-        }
-    }
-
-    // Preîncărcare de siguranță moneda-front.jpg pentru fluxul de mobil la rezoluție de 3024x4032 [1]
-    const imgCoalaGoalaMobile = new Image();
+    let imgCoalaGoalaMobile = new Image(); // Declaram cu let pentru a evita eroarea de re-atribuire pe mobil [1]
     let puncteCoalaMobile = [
         { x: 504, y: 2016 },
         { x: 1512, y: 3024 },
@@ -1026,155 +1022,6 @@
     let mascaDestMobile = null;
     let mascaDestWMobile = 3024;
     let mascaDestHMobile = 4032;
-
-    imgCoalaGoalaMobile.onload = () => {
-        const rezu = detecteazaMonedaMagicWand(imgCoalaGoalaMobile, false);
-        puncteCoalaMobile = rezu.puncte;
-        mascaDestMobile = rezu.mask;
-        mascaDestWMobile = rezu.maskW;
-        mascaDestHMobile = rezu.maskH;
-    };
-    imgCoalaGoalaMobile.onerror = () => {
-        // Fallback la rezoluție nativă de 3024x4032 [1]
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 3024;
-        tempCanvas.height = 4032;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.fillStyle = '#11141a';
-        tempCtx.fillRect(0, 0, 3024, 4032);
-        tempCtx.fillStyle = '#718096';
-        tempCtx.beginPath();
-        tempCtx.arc(1512, 2016, 1100, 0, 2 * Math.PI);
-        tempCtx.fill();
-        imgCoalaGoalaMobile.src = tempCanvas.toDataURL();
-    };
-    imgCoalaGoalaMobile.src = "moneda-front.jpg";
-
-    async function pornesteFluxCameraMobile() {
-        try {
-            intraInFullscreenMobile();
-
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'environment', // Spate
-                    width: { ideal: 4032 }, // Rezoluție ideală pe mobil de 4032 [1]
-                    height: { ideal: 3024 }
-                }
-            });
-            videoElementMobile.srcObject = stream;
-            videoTrack = stream.getVideoTracks()[0];
-            
-            btnPornesteMobile.style.display = 'none';
-            cameraContainerMobile.style.display = 'block';
-            isScanning = true;
-            currentState = STATE_SCANNING;
-            
-            viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "Apropiați moneda și aliniați desenul roșu în cerc...";
-            statusTextMobile.style.color = "#00bfff";
-            
-            requestAnimationFrame(analizaFrameMobile);
-        } catch (e) {
-            alert("Eroare la activarea camerei spate. Verificați permisiunile!");
-        }
-    }
-
-    function opresteFluxCameraMobile() {
-        isScanning = false;
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-        }
-        videoElementMobile.srcObject = null;
-        cameraContainerMobile.style.display = 'none';
-    }
-
-    btnPornesteMobile.addEventListener('click', () => {
-        pornesteFluxCameraMobile();
-    });
-
-    btnInchideRezultatMobile.addEventListener('click', () => {
-        resultOverlayMobile.style.display = 'none';
-        imgRezultatFinalMobile.src = '';
-        pornesteFluxCameraMobile(); // Reîncepe scanarea
-    });
-
-    // --- ALGORITM REAL-TIME CLARITATE ROȘIE MOBIL ---
-    function calculeazaClaritateRosieMobile(ctx, w, h) {
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const pixels = imgData.data;
-        
-        let sumGrad = 0;
-        let countRed = 0;
-        
-        for (let y = 2; y < h - 2; y += 2) {
-            for (let x = 2; x < w - 2; x += 2) {
-                const idx = (y * w + x) * 4;
-                const r = pixels[idx];
-                const g = pixels[idx+1];
-                const b = pixels[idx+2];
-                
-                // Căutăm pixeli roșii saturați [2]
-                if (r > 130 && r - g > 65 && r - b > 65) {
-                    countRed++;
-                    
-                    const idxRight = idx + 4;
-                    const idxDown = idx + w * 4;
-                    
-                    const rRight = pixels[idxRight];
-                    const rDown = pixels[idxDown];
-                    
-                    const gradX = Math.abs(r - rRight);
-                    const gradY = Math.abs(r - rDown);
-                    
-                    sumGrad += (gradX + gradY);
-                }
-            }
-        }
-        
-        const totalPixelsAnalyzed = (w * h) / 4;
-        return {
-            ratio: countRed / totalPixelsAnalyzed,
-            sharpness: countRed > 0 ? (sumGrad / countRed) : 0
-        };
-    }
-
-    // --- LOOP FRAME MOBIL ---
-    async function analizaFrameMobile() {
-        if (!isScanning || currentState === STATE_CAPTURING) return;
-
-        if (videoElementMobile.readyState === videoElementMobile.HAVE_ENOUGH_DATA) {
-            const size = 150;
-            analysisCanvas.width = size;
-            analysisCanvas.height = size;
-            
-            const sx = (videoElementMobile.videoWidth - size) / 2;
-            const sy = (videoElementMobile.videoHeight - size) / 2;
-            analysisCtx.drawImage(videoElementMobile, sx, sy, size, size, 0, 0, size, size);
-            
-            const metrice = calculeazaClaritateRosieMobile(analysisCtx, size, size);
-            
-            if (currentState === STATE_SCANNING) {
-                if (metrice.ratio > 0.015) { // Cel puțin 1.5% din vizor este roșu saturat
-                    currentState = STATE_CALIBRATING;
-                    viewfinderMobile.className = 'viewfinder-circle-mobile calibrating';
-                    statusTextMobile.textContent = "Marcaj roșu detectat! Mențineți telefonul stabil...";
-                    statusTextMobile.style.color = "#ffc107";
-                    
-                    sharpnessHistory = [];
-                    bestFocusDistance = 0;
-                    bestSharpness = 0;
-                    
-                    // ELIMINAT CALIBRAREA MANUALĂ LENTĂ (LENTILELE NU POT ȚINE PASUL) [1]
-                    // Autofocusul nativ continuu al telefonului este mult mai rapid și stabil [1]
-                    // Îi acordăm 1.8 secunde să stabilizeze imaginea, menținând telefonul nemișcat [1]
-                    setTimeout(declanseazaCapturaFotoMobile, 1800); 
-                }
-            }
-        }
-        
-        requestAnimationFrame(analizaFrameMobile);
-    }
 
     // --- ASISTENTUL DE DETECȚIE RADIALĂ DE MARGINE PENTRU AUTO-SCALARE MOBIL --- [3]
     function gasesteMargineTrue(startX, startY, dx, dy, imgData, w, h) {
@@ -1225,70 +1072,9 @@
     }
 
     // --- CAPTURĂ ȘI PROCESARE IMAGINE MOBIL AUTOMATĂ LA REZOLUȚIE MAXIMĂ DE 3024x4032 ---
-    function declanseazaCapturaFotoMobile() {
+    function randeazaRezultatAutomatMobil() {
         try {
-            currentState = STATE_CAPTURING;
-            statusTextMobile.textContent = "Focalizat! Se procesează desenul...";
-            statusTextMobile.style.color = "#39ff14"; // Verde neon
-            
-            // Desenăm imaginea de pe mobil direct la rezoluția completă nativă de 3024x4032
-            const capW = 3024;
-            const capH = 4032;
-            const capturedCanvas = document.createElement('canvas');
-            capturedCanvas.width = capW;
-            capturedCanvas.height = capH;
-            const capCtx = capturedCanvas.getContext('2d');
-            capCtx.drawImage(videoElementMobile, 0, 0, capW, capH); // Desenare completă proporțională fără decupaj intermediar [1]
-            
-            const imgData = capCtx.getImageData(0, 0, capW, capH);
-            
-            // 1. RULĂM DETECTORUL RADIAL DE MARGINI ÎNAINTE DE PROCESARE [3]
-            // Acesta determină cu precizie raza reală a monedei din poză (fie ea mică sau mare) [3]
-            const ptL = gasesteMargineTrue(1512, 2016, -1.5, 0, imgData, capW, capH);
-            const ptR = gasesteMargineTrue(1512, 2016, 1.5, 0, imgData, capW, capH);
-            const ptD = gasesteMargineTrue(1512, 2016, 0, 1.5, imgData, capW, capH);
-            const ptU = gasesteMargineTrue(1512, 2016, 0, -1.5, imgData, capW, capH);
-            
-            const rH = Math.abs(ptR.x - ptL.x) / 2;
-            const rV = Math.abs(ptD.y - ptU.y) / 2;
-            const razaMedie = (rH + rV) / 2; // Rază reală calculată dinamic în pixeli [3]
-            
-            // 2. CURĂȚARE COȘMETICĂ DINAMICĂ A FUNDALULUI (MASCARE AUTOMATĂ ADAPTIVĂ) [3]
-            // Folosim raza determinată dinamic pentru a plasa masca albă fix la marginea monedei [3]
-            // Acest lucru garantează o mascare perfectă a fundalului, indiferent de distanța de fotografiere [3]
-            const cleanCtx = capturedCanvas.getContext('2d');
-            cleanCtx.globalCompositeOperation = 'destination-over';
-            cleanCtx.fillStyle = '#ffffff';
-            cleanCtx.fillRect(0, 0, capW, capH);
-            cleanCtx.globalCompositeOperation = 'source-over';
-            
-            // Desenăm inelul de curățare adaptat dinamic la raza reală (+ 50px distanță siguranță) [3]
-            const gradient = cleanCtx.createRadialGradient(1512, 2016, razaMedie + 15, 1512, 2016, razaMedie + 65);
-            gradient.addColorStop(0, 'rgba(255,255,255,0)');
-            gradient.addColorStop(1, 'rgba(255,255,255,1)');
-            cleanCtx.fillStyle = gradient;
-            cleanCtx.beginPath();
-            cleanCtx.arc(1512, 2016, capW, 0, 2 * Math.PI);
-            cleanCtx.fill();
-
-            // Oprim fizic camera imediat ce imaginea a fost copiată
-            opresteFluxCameraMobile();
-
-            const srcW = capturedCanvas.width;
-            const srcH = capturedCanvas.height;
-            const srcPixels = capCtx.getImageData(0, 0, srcW, srcH).data;
-            
-            // Rulăm Magic Wand pe imaginea la rezoluție completă de 3024x4032 (acum are fundalul pre-curățat)
-            const rezu = detecteazaMonedaMagicWand(capturedCanvas, true);
-            const puncteSelectateMobile = rezu.puncte;
-            const mascaSursaMobile = rezu.mask;
-            const mascaSursaWMobile = rezu.maskW;
-            const mascaSursaHMobile = rezu.maskH;
-            
-            const pragRosu = pragRosuMobile; 
-            const zonaTranzitie = tranzitieMobile;
-            const pragMinim = Math.max(0, pragRosu - zonaTranzitie); 
-            
+            // Se utilizează imaginile încărcate automat de pe server [1]
             const latimeDest = imgCoalaGoalaMobile.naturalWidth || imgCoalaGoalaMobile.width || 3024;
             const inaltimeDest = imgCoalaGoalaMobile.naturalHeight || imgCoalaGoalaMobile.height || 4032;
             
@@ -1297,14 +1083,18 @@
             outputCanvas.height = inaltimeDest;
             const outCtx = outputCanvas.getContext('2d');
             
-            // Desenăm moneda-front ca fundal în canvasul de destinație [2]
+            // Desenăm moneda-front ca fundal [2]
             outCtx.drawImage(imgCoalaGoalaMobile, 0, 0);
             
             // Citim pixelii de fundal ai monedei de referință
             const dstImgData = outCtx.getImageData(0, 0, latimeDest, inaltimeDest);
             const dstPixels = dstImgData.data;
             
-            const srcPoints = puncteSelectateMobile.map(p => [p.x, p.y]);
+            const srcW = imgDesen.naturalWidth || imgDesen.width;
+            const srcH = imgDesen.naturalHeight || imgDesen.height;
+            const srcPixels = cachedSrcPixels;
+            
+            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
             const dstPoints = puncteCoalaMobile.map(p => [p.x, p.y]);
             
             const H = getHomographyMatrix(dstPoints, srcPoints);
@@ -1312,7 +1102,11 @@
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
             
-            // OPTIMIZARE PRIN BOUNDING BOX (Reduce masiv calculele la rezoluția completă de 12 Megapixeli) [1]
+            const pragRosu = pragRosuMobile; 
+            const zonaTranzitie = tranzitieMobile;
+            const pragMinim = Math.max(0, pragRosu - zonaTranzitie); 
+            
+            // OPTIMIZARE PRIN BOUNDING BOX
             const xs = puncteCoalaMobile.map(p => p.x);
             const ys = puncteCoalaMobile.map(p => p.y);
             const uMin = Math.max(0, Math.floor(Math.min(...xs)));
@@ -1326,7 +1120,6 @@
                     const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
 
                     if (valMascaDest > 0.0) {
-                        // Mapare directă prin homografie (auto-scalarea funcționează perfect acum datorită măștii adaptive) [3]
                         const denom = h20 * u + h21 * v + 1.0;
                         const sx = (h00 * u + h01 * v + h02) / denom;
                         const sy = (h10 * u + h11 * v + h12) / denom;
@@ -1335,7 +1128,7 @@
                         const y0 = Math.floor(sy);
 
                         if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                            const valMascaSursa = getMaskValue(sx, sy, mascaSursaMobile, mascaSursaWMobile, mascaSursaHMobile, srcW, srcH);
+                            const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
 
                             if (valMascaSursa > 0.0) {
                                 const dx_s = sx - x0;
@@ -1350,7 +1143,6 @@
                                 let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
                                 let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
 
-                                // Filtrarea cromatică a desenului roșu (Redness) [2]
                                 let redness = r - Math.max(g, b);
 
                                 let alpha;
@@ -1366,17 +1158,14 @@
                                 const alphaFinal = (alpha / 255) * valMascaSursa * valMascaDest;
 
                                 if (alphaFinal > 0.0) {
-                                    // Citim culoarea de fundal direct din moneda de referință [2]
                                     const r_bg = dstPixels[destIdx];
                                     const g_bg = dstPixels[destIdx + 1];
                                     const b_bg = dstPixels[destIdx + 2];
 
-                                    // Amestecare manuală Multiply stabilă pe canale [2]
                                     const r_blend = (r * r_bg) / 255;
                                     const g_blend = (g * g_bg) / 255;
                                     const b_blend = (b * b_bg) / 255;
 
-                                    // Interpolare liniară (Lerp) [2]
                                     dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
                                     dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
                                     dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
@@ -1387,19 +1176,14 @@
                 }
             }
             
-            // Scriem pixelii amestecați direct în canvasul de destinație
             outCtx.putImageData(dstImgData, 0, 0);
-            
-            // Afișăm rezultatul
             imgRezultatFinalMobile.src = outputCanvas.toDataURL('image/png');
             resultOverlayMobile.style.display = 'flex';
+            loaderMobile.style.display = 'none';
         } catch (err) {
-            console.error("Eroare procesare mobil:", err);
-            currentState = STATE_SCANNING;
-            viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "Eroare detecție. Reîncercați încadrarea monedei...";
-            statusTextMobile.style.color = "#ff073a";
-            pornesteFluxCameraMobile();
+            console.error("Eroare procesare automată mobil:", err);
+            loaderMobile.textContent = "❌ Eroare la alinierea automată de pe server.";
+            loaderMobile.style.color = "#ff073a";
         }
     }
 
@@ -1453,7 +1237,7 @@
                 } catch (e) {
                     console.error("Eroare inițializare automată:", e);
                     loaderMobile.innerHTML = "❌ Eșec detecție: " + e.toString() + "<br><span style='font-size:12px; color:#cbd5e0;'>Verificați dacă imaginile s-au încărcat complet.</span>";
-                    loaderMobile.style.color = "#ff073a";
+                    loaderMobile.style.color = "#ffc107";
                 }
             }, 50);
         }

@@ -435,6 +435,12 @@
     const STATE_CAPTURING = 3;
     let currentState = STATE_SCANNING;
 
+    let sharpnessHistory = [];
+    let bestFocusDistance = 0;
+    let bestSharpness = 0;
+    let calibrationSteps = [];
+    let currentStepIndex = 0;
+
     // Prăguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
@@ -1125,6 +1131,11 @@
 
     async function pornesteFluxCameraMobile() {
         try {
+            // VERIFICĂM CONTEXTUL SECURIZAT (HTTPS) SAU LOCALHOST ÎNAINTE DE CONECTARE [1]
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Accesul la cameră este blocat de browser. Pagina trebuie accesată obligatoriu prin protocol securizat HTTPS (sau localhost) pentru a funcționa camera live!");
+            }
+
             intraInFullscreenMobile();
 
             // ÎNCERCĂM CONECTAREA CU CONSTRÂNGERI DE REZOLUȚIE IERARHICE (EVITĂ ERORILE SILENȚIOASE) [1]
@@ -1145,11 +1156,12 @@
                 } catch (err) {
                     lastError = err;
                     console.warn("Profilul de cameră " + i + " a eșuat. Încercăm următorul...", err);
+                    // Adăugăm o mică pauză asincronă de 250ms pentru a lăsa hardware-ul să elibereze resursa [1]
+                    await new Promise(resolve => setTimeout(resolve, 250));
                 }
             }
 
             if (!stream) {
-                // Dacă toate profilele eșuează, aruncăm eroarea în interfața grafică [1]
                 throw new Error(lastError ? lastError.toString() : "Toate constrângerile camerei spate au fost respinse.");
             }
             
@@ -1169,7 +1181,7 @@
             // Afișăm eroarea exactă direct în caseta de status pentru o diagnosticare simplă [1]
             const statusMobile = document.getElementById('statusTextMobile');
             if (statusMobile) {
-                statusMobile.innerHTML = "❌ Eroare cameră: " + e.message + "<br><span style='font-size:11px; color:#cbd5e0;'>Verificați dacă accesați prin HTTPS sau dacă permisiunea este activă!</span>";
+                statusMobile.innerHTML = "❌ Eroare cameră: " + e.message + "<br><span style='font-size:11px; color:#cbd5e0; line-height: 1.4; display:block; margin-top:5px;'>Asigurați-vă că accesați linkul securizat HTTPS pe mobil, iar permisiunea din browser este activă!</span>";
                 statusMobile.style.color = "#ff073a";
             } else {
                 alert("Eroare cameră: " + e.message + "\nAsigurați-vă că rulați pe HTTPS!");

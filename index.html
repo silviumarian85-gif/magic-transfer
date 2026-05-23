@@ -435,12 +435,6 @@
     const STATE_CAPTURING = 3;
     let currentState = STATE_SCANNING;
 
-    let sharpnessHistory = [];
-    let bestFocusDistance = 0;
-    let bestSharpness = 0;
-    let calibrationSteps = [];
-    let currentStepIndex = 0;
-
     // Prăguri cromatici constante pentru mobil [2]
     const pragRosuMobile = 45; 
     const pragMinimMobile = 30;
@@ -1511,6 +1505,87 @@
             pornesteFluxCameraMobile();
         }
     }
+
+    // --- ASISTENTUL DE ÎNCĂRCARE ȘI PROCESARE AUTOMATĂ DE PE SERVER --- [1]
+    window.addEventListener('load', () => {
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) return; // Pe PC lăsăm utilizatorul să testeze manual prin interfață [1]
+
+        const imgM1 = new Image();
+        const imgM2 = new Image();
+        
+        let m1Loaded = false;
+        let m2Loaded = false;
+        
+        function pornesteProcesareaAutomata() {
+            if (!m1Loaded || !m2Loaded) return;
+            
+            loaderMobile.textContent = "⌛ Se procesează moneda-perspectiva.jpg...";
+            
+            setTimeout(() => {
+                try {
+                    // Detecție Moneda 1 (Perspectivă) [1]
+                    const rezSursa = detecteazaMonedaMagicWand(imgM1, true);
+                    puncteSelectate = rezSursa.puncte;
+                    mascaSursa = rezSursa.mask;
+                    mascaSursaW = rezSursa.maskW;
+                    mascaSursaH = rezSursa.maskH;
+                    
+                    // Detecție Moneda 2 (Referință) [1]
+                    const rezDest = detecteazaMonedaMagicWand(imgM2, false);
+                    puncteCoalaMobile = rezDest.puncte;
+                    mascaDestMobile = rezDest.mask;
+                    mascaDestWMobile = rezDest.maskW;
+                    mascaDestHMobile = rezDest.maskH;
+                    
+                    // Caching pixeli sursă [1]
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = imgM1.naturalWidth || imgM1.width;
+                    tempCanvas.height = imgM1.naturalHeight || imgM1.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(imgM1, 0, 0);
+                    cachedSrcPixels = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+                    cachedSrcW = tempCanvas.width;
+                    cachedSrcH = tempCanvas.height;
+                    
+                    imgDesen = imgM1;
+                    imgCoalaGoalaMobile = imgM2;
+                    
+                    // Rulăm blending-ul de 12 Megapixeli [1]
+                    randeazaRezultatAutomatMobil();
+                } catch (e) {
+                    console.error("Eroare inițializare automată:", e);
+                    loaderMobile.innerHTML = "❌ Eșec detecție: " + e.toString() + "<br><span style='font-size:12px; color:#cbd5e0;'>Verificați dacă imaginile s-au încărcat complet.</span>";
+                    loaderMobile.style.color = "#ffc107";
+                }
+            }, 50);
+        }
+        
+        imgM1.onload = () => {
+            m1Loaded = true;
+            pornesteProcesareaAutomata();
+        };
+        imgM1.onerror = () => {
+            loaderMobile.textContent = "❌ Nu s-a putut descărca moneda-perspectiva.jpg de pe server.";
+            loaderMobile.style.color = "#ff073a";
+        };
+        imgM1.src = "moneda-perspectiva.jpg";
+        
+        imgM2.onload = () => {
+            m2Loaded = true;
+            pornesteProcesareaAutomata();
+        };
+        imgM2.onerror = () => {
+            loaderMobile.textContent = "❌ Nu s-a putut descărca moneda-front.jpg de pe server.";
+            loaderMobile.style.color = "#ff073a";
+        };
+        imgM2.src = "moneda-front.jpg";
+    });
+
+    btnInchideRezultatMobile.addEventListener('click', () => {
+        resultOverlayMobile.style.display = 'none';
+        document.querySelector('.desktop-container').style.display = 'block'; // Permitem vizualizarea tabloului de bord
+    });
 </script>
 </body>
 </html>

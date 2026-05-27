@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 15
+            Versiune 16
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -310,7 +310,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil: Afișare mare și clară -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 15
+            Versiune 16
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -1351,6 +1351,35 @@
                                 outPixels[destIdx + 3] = 0;
                             }
                         }
+                    }
+                }
+            }
+
+            // --- PASUL DE SMOOTH PIXELS (ANTI-ALIASING) EXCLUSIV PE CANALUL ALPHA ---
+            // Realizăm o estompare fină pe marginile ascuțite, oferind contururi rotunjite organic
+            const tempAlpha = new Uint8Array(targetW * targetH);
+            for (let i = 0; i < targetW * targetH; i++) {
+                tempAlpha[i] = outPixels[i * 4 + 3];
+            }
+
+            // Aplicăm un filtru Gaussian 3x3 pe matricea de transparență (fără a amesteca culorile RGB)
+            for (let v = 1; v < targetH - 1; v++) {
+                for (let u = 1; u < targetW - 1; u++) {
+                    const idx = v * targetW + u;
+                    const destIdx = idx * 4;
+
+                    if (tempAlpha[idx] > 0 || 
+                        tempAlpha[idx - 1] > 0 || tempAlpha[idx + 1] > 0 ||
+                        tempAlpha[idx - targetW] > 0 || tempAlpha[idx + targetW] > 0) {
+
+                        // Kernel Gaussian ponderat [1-2-1 / 2-4-2 / 1-2-1] împărțit la 16
+                        const valAlpha = (
+                            1 * tempAlpha[idx - targetW - 1] + 2 * tempAlpha[idx - targetW] + 1 * tempAlpha[idx - targetW + 1] +
+                            2 * tempAlpha[idx - 1]           + 4 * tempAlpha[idx]           + 2 * tempAlpha[idx + 1] +
+                            1 * tempAlpha[idx + targetW - 1] + 2 * tempAlpha[idx + targetW] + 1 * tempAlpha[idx + targetW + 1]
+                        ) / 16;
+
+                        outPixels[destIdx + 3] = Math.round(valAlpha);
                     }
                 }
             }

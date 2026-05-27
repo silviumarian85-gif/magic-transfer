@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 18
+            Versiune 19
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -257,16 +257,6 @@
         <div class="slider-box" style="margin: 0;">
             <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
             <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
-        </div>
-
-        <div class="slider-box" style="margin: 0;">
-            <label for="intensitateCorectie">Intensitate Corecție Highlights: <span id="valIntensitateCorectie">65</span>%</label>
-            <input type="range" id="intensitateCorectie" min="0" max="100" value="65" style="width: 100%;">
-        </div>
-
-        <div class="slider-box" style="margin: 0;">
-            <label for="pragCorectie">Prag Activare Corecție: 0.<span id="valPragCorectie">35</span></label>
-            <input type="range" id="pragCorectie" min="10" max="90" value="35" style="width: 100%;">
         </div>
     </div>
 
@@ -313,7 +303,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 18
+            Versiune 19
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -335,16 +325,6 @@
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">20</span></label>
             <input type="range" id="mSensibilitate" min="0" max="150" value="20" style="width: 100%;">
-        </div>
-
-        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 10px;">
-            <label for="mIntensitateCorectie" style="color: #fff; display: block; margin-bottom: 5px;">Intensitate Corecție Highlights: <span id="mValIntensitateCorectie">65</span>%</label>
-            <input type="range" id="mIntensitateCorectie" min="0" max="100" value="65" style="width: 100%;">
-        </div>
-
-        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 10px;">
-            <label for="mPragCorectie" style="color: #fff; display: block; margin-bottom: 5px;">Prag Activare Corecție: 0.<span id="mValPragCorectie">35</span></label>
-            <input type="range" id="mPragCorectie" min="10" max="90" value="35" style="width: 100%;">
         </div>
 
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
@@ -379,18 +359,6 @@
     
     const sliderSensibilitate = document.getElementById('sensibilitate');
     const valSensibilitate = document.getElementById('valSensibilitate');
-    
-    // Slidere noi Post-Procesare (PC)
-    const sliderIntensitate = document.getElementById('intensitateCorectie');
-    const valIntensitate = document.getElementById('valIntensitateCorectie');
-    const sliderPrag = document.getElementById('pragCorectie');
-    const valPrag = document.getElementById('valPragCorectie');
-
-    // Slidere noi Post-Procesare (Mobil)
-    const mSliderIntensitate = document.getElementById('mIntensitateCorectie');
-    const mValIntensitate = document.getElementById('mValIntensitateCorectie');
-    const mSliderPrag = document.getElementById('mPragCorectie');
-    const mValPrag = document.getElementById('mValPragCorectie');
 
     const instructiuniPuncte = document.getElementById('instructiuniPuncte');
     const instructiuniPuncteCoala = document.getElementById('instructiuniPuncteCoala');
@@ -502,30 +470,6 @@
         mValSensibilitate.textContent = mSensibilitate.value;
         sliderSensibilitate.value = mSensibilitate.value;
         valSensibilitate.textContent = mSensibilitate.value;
-    });
-
-    // Sincronizare Intensitate Corecție
-    sliderIntensitate.addEventListener('input', () => {
-        valIntensitate.textContent = sliderIntensitate.value;
-        mSliderIntensitate.value = sliderIntensitate.value;
-        mValIntensitate.textContent = sliderIntensitate.value;
-    });
-    mSliderIntensitate.addEventListener('input', () => {
-        mValIntensitate.textContent = mSliderIntensitate.value;
-        sliderIntensitate.value = mSliderIntensitate.value;
-        valIntensitate.textContent = mSliderIntensitate.value;
-    });
-
-    // Sincronizare Prag Corecție
-    sliderPrag.addEventListener('input', () => {
-        valPrag.textContent = sliderPrag.value;
-        mSliderPrag.value = sliderPrag.value;
-        mValPrag.textContent = sliderPrag.value;
-    });
-    mSliderPrag.addEventListener('input', () => {
-        mValPrag.textContent = mSliderPrag.value;
-        sliderPrag.value = mSliderPrag.value;
-        valPrag.textContent = mSliderPrag.value;
     });
 
     // Funcție pentru a ascunde badge-ul de versiune pe PC
@@ -940,7 +884,7 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(videoPreview, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            const愉rezultat = detecteazaColturiCarte(canvasAnaliza);
+            const rezultat = detecteazaColturiCarte(canvasAnaliza);
             trackerColturiSursa = rezultat.puncte;
 
             const oCtx = cameraOverlay.getContext('2d');
@@ -1252,7 +1196,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Calibrare stabilă la formatul fix 489x680, Contrast S-Curve și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Calibrare stabilă la formatul fix 489x680, Fără Uniformizare) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1332,20 +1276,7 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
-            const maxCorectieVal = parseFloat(sliderIntensitate.value) / 100; // 0.0 - 1.0
-            const pragActivareVal = parseFloat(sliderPrag.value) / 100; // 0.10 - 0.90
-
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
-
-            // Factorul de curbă de contrast (Hermite S-curve / Contrast Curves) pentru intensificare culori
-            const gContrast = 1.6;
-            function aplicaContrastPixeli(v) {
-                if (v < 0.5) {
-                    return Math.pow(2 * v, gContrast) / 2;
-                } else {
-                    return 1 - Math.pow(2 * (1 - v), gContrast) / 2;
-                }
-            }
 
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
@@ -1392,7 +1323,7 @@
                             const diferentaRosu = r - maxGB;
                             
                             // Evaluăm raportul de saturație al canalului roșu (rRatio).
-                            // Pe suprafețele de alb cald / gri, acest raport este sub 1.15.
+                            // Pe suprafețele de alb cal d / gri, acest raport este sub 1.15.
                             // Pentru cerneală roșie reală (fie ea și în degrade sau umbrită), raportul depășește 1.18.
                             const rRatio = r / (maxGB + 1);
 
@@ -1415,41 +1346,11 @@
                             }
 
                             if (alpha > 0) {
-                                // Aplică contrastul original (S-Curve)
-                                const rNorm = r / 255;
-                                const gNorm = g / 255;
-                                const bNorm = b / 255;
-
-                                const origR = Math.round(aplicaContrastPixeli(rNorm) * 255);
-                                const origG = Math.round(aplicaContrastPixeli(gNorm) * 255);
-                                const origB = Math.round(aplicaContrastPixeli(bNorm) * 255);
-
-                                // --- SCRIPT DE RETUȘARE ȘI SATURARE POST-PROCESARE PENTRU ROȘU CONSTANT ---
-                                // Valoarea de referință a roșului fizic saturat (marker intens)
-                                const tintaR = 215;
-                                const tintaG = 15;
-                                const tintaB = 30;
-
-                                // Identificăm gradul de supraexpunere / albire (când G și B cresc în raport cu R din cauza luminii)
-                                const albire = Math.min(0.9, (g + b) / (2 * r + 1));
-
-                                // Corecție adaptivă pe baza sliderelor active din interfață
-                                let factorCorectie = 0;
-                                if (albire > pragActivareVal) {
-                                    const intervalCorectie = 0.90 - pragActivareVal;
-                                    const distanta = albire - pragActivareVal;
-                                    const raportScale = intervalCorectie > 0 ? (distanta / intervalCorectie) : 1;
-                                    
-                                    factorCorectie = Math.min(maxCorectieVal, raportScale * maxCorectieVal);
-                                }
-
-                                const nouR = Math.round(origR * (1 - factorCorectie) + tintaR * factorCorectie);
-                                const nouG = Math.round(origG * (1 - factorCorectie) + tintaG * factorCorectie);
-                                const nouB = Math.round(origB * (1 - factorCorectie) + tintaB * factorCorectie);
-
-                                outPixels[destIdx]     = nouR;
-                                outPixels[destIdx + 1] = nouG;
-                                outPixels[destIdx + 2] = nouB;
+                                // --- SCRIPT DE PROCESARE FĂRĂ UNIFORMIZARE SAU CONTRAST ---
+                                // Păstrăm și transferăm intensitățile și culorile RGB native exact așa cum se regăsesc în imaginea originală
+                                outPixels[destIdx]     = Math.round(r);
+                                outPixels[destIdx + 1] = Math.round(g);
+                                outPixels[destIdx + 2] = Math.round(b);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
                                 outPixels[destIdx + 3] = 0;
@@ -1458,9 +1359,6 @@
                     }
                 }
             }
-
-            // --- SMOOTH PIXELS ELIMINAT CONFORM SOLICITĂRII ---
-            // Marginile rămân sharp, oferind pixeli direcți din detecție pentru un test acurat.
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 

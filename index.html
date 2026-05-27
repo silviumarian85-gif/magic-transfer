@@ -2,19 +2,11 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Aliniere Monede - Magic Wand & Blending</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</title>
     <style>
-        /* --- STILURI GENERALE ȘI DESKTOP --- */
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #f0f2f5; 
-            color: #333; 
-            padding: 20px; 
-            text-align: center; 
-            margin: 0; 
-        }
-        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h2 { color: #1a1a1a; margin-bottom: 25px; }
         
         .upload-section { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -25,24 +17,16 @@
         .btn-transfer:disabled { background: #a5d6a7; cursor: not-allowed; }
         input[type="file"] { display: none; }
         
-        .control-section { display: flex; justify-content: center; gap: 20px; margin: 15px auto; max-width: 500px; flex-wrap: wrap; }
-        .slider-box { flex: 1; min-width: 280px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; display: flex; flex-direction: column; justify-content: space-between; }
+        .slider-box { margin: 15px auto; max-width: 400px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
         .slider-box label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 5px; }
         
-        .workspace { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 25px; }
+        .workspace { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 25px; }
         .panel { background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
-        .panel h3 { margin-top: 0; color: #4a5568; font-size: 15px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; width: 100%; }
+        .panel h3 { margin-top: 0; color: #4a5568; font-size: 16px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; width: 100%; }
         
-        .preview-box { width: 100%; height: 280px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0; border-radius: 6px; background: #f7fafc; overflow: hidden; margin-top: 10px; position: relative; }
+        .preview-box { width: 100%; height: 250px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0; border-radius: 6px; background: #f7fafc; overflow: hidden; margin-top: 10px; position: relative; }
         .preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
         
-        .ajustare-masca-box { margin-top: 10px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fcfcfc; width: 90%; }
-        .ajustare-masca-box div { font-weight: bold; font-size: 11px; margin-bottom: 5px; color: #4a5568; }
-        .ajustare-masca-inputs { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ajustare-masca-inputs div { flex: 1; min-width: 70px; text-align: left; }
-        .ajustare-masca-inputs label { font-size: 10px; font-weight: normal; margin-bottom: 2px; }
-        .ajustare-masca-inputs input { width: 100%; margin: 0; }
-
         #canvasRezultat { max-width: 100%; max-height: 100%; object-fit: contain; display: none; cursor: zoom-in; transition: transform 0.2s; }
         #canvasRezultat:hover { transform: scale(1.02); }
 
@@ -81,302 +65,82 @@
         }
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
-
-        /* --- CONTAINER ȘI STILURI MOBILE --- */
-        .desktop-container {
-            display: block;
-        }
-        .mobile-container {
-            display: none;
-        }
-
-        @media (max-width: 768px) {
-            html, body {
-                background: #090b10;
-                overflow: hidden;
-                width: 100dvw;
-                height: 100dvh;
-                position: fixed;
-                padding: 0;
-            }
-            .desktop-container {
-                display: none !important;
-            }
-            .mobile-container {
-                display: flex !important;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100dvw;
-                height: 100dvh;
-                background: #0f111a;
-                overflow: hidden;
-                align-items: center;
-                justify-content: center;
-                z-index: 1;
-            }
-
-            .btn-start-mobile { 
-                background: #28a745; 
-                color: white; 
-                padding: 18px 45px; 
-                border-radius: 30px; 
-                cursor: pointer; 
-                font-weight: bold; 
-                font-size: 18px; 
-                border: none; 
-                transition: 0.2s; 
-                box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
-                z-index: 10;
-            }
-
-            .camera-box-mobile {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100dvw;
-                height: 100dvh;
-                background: black;
-                z-index: 5;
-            }
-
-            #videoElementMobile {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-
-            .hud-overlay-mobile {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100dvw;
-                height: 100dvh;
-                pointer-events: none;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                box-sizing: border-box;
-            }
-
-            .viewfinder-circle-mobile {
-                width: 260px;
-                height: 260px;
-                border: 3px dashed rgba(255, 7, 58, 0.7);
-                border-radius: 50%;
-                position: relative;
-                box-shadow: 0 0 0 9999px rgba(0,0,0,0.65);
-                transition: border-color 0.3s;
-            }
-
-            .viewfinder-circle-mobile.calibrating {
-                border-color: #39ff14;
-                animation: pulse-mobile 0.8s infinite alternate;
-            }
-
-            @keyframes pulse-mobile {
-                from { transform: scale(1); }
-                to { transform: scale(1.03); }
-            }
-
-            .status-box-mobile {
-                position: absolute;
-                top: calc(30px + env(safe-area-inset-top));
-                background: rgba(0,0,0,0.9);
-                padding: 12px 24px;
-                border-radius: 20px;
-                font-size: 13px;
-                font-weight: 600;
-                border: 1px solid #2d3748;
-                pointer-events: none;
-                color: #00bfff;
-                text-align: center;
-                max-width: 80%;
-                z-index: 100;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }
-
-            .result-overlay-mobile { 
-                display: none; 
-                position: fixed; 
-                top: 0; 
-                left: 0; 
-                width: 100dvw; 
-                height: 100dvh; 
-                background-color: rgba(10, 12, 16, 0.98); 
-                z-index: 999; 
-                align-items: center;
-                justify-content: center;
-                flex-direction: column;
-            }
-
-            .result-overlay-mobile img { 
-                max-width: 90dvw;
-                max-height: 80dvh;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-                border: 2px solid #2d3748; 
-                border-radius: 12px;
-                object-fit: contain;
-            }
-
-            .close-btn-mobile { 
-                position: absolute; 
-                top: calc(25px + env(safe-area-inset-top)); 
-                right: 30px; 
-                color: #cbd5e0; 
-                font-size: 44px; 
-                cursor: pointer; 
-                font-weight: bold; 
-                transition: 0.2s;
-                user-select: none;
-                z-index: 1000;
-            }
-        }
     </style>
 </head>
 <body>
 
-<!-- === INTERFAȚA DESKTOP ORIGINALĂ === -->
-<div class="desktop-container">
-    <div class="container">
-        <h2>Aliniere Monede - Îndreptare Perspectivă & Transfer Desen</h2>
-        
-        <div class="upload-section">
-            <div>
-                <label for="incarcaDesen" class="btn-upload">🎨 Încarcă Moneda 1 (Perspectivă 45°)</label>
-                <input type="file" id="incarcaDesen" accept="image/*">
-            </div>
-            
-            <div>
-                <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Moneda 2 (Unghi Drept - Sus)</label>
-                <input type="file" id="incarcaCoalaGoala" accept="image/*">
-            </div>
-        </div>
-
-        <div class="control-section">
-            <div class="slider-box">
-                <label for="sensibilitate">Prag Filtrare Roșu (Sensibilitate): <span id="valSensibilitate">110</span></label>
-                <input type="range" id="sensibilitate" min="10" max="240" value="110" style="width: 100%;">
-            </div>
-        </div>
-
+<div class="container">
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</h2>
+    
+    <div class="upload-section">
         <div>
-            <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul</button>
+            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Cartea 1 (Perspectivă - Desen Roșu)</label>
+            <input type="file" id="incarcaDesen" accept="image/*">
         </div>
-
-        <div class="workspace">
-            <div class="panel">
-                <h3>1. Moneda 1 (Contur detectat)</h3>
-                <div class="preview-box" id="boxDesen">
-                    <span style="color: #a0aec0; font-size: 14px;">Nicio imagine încărcată</span>
-                </div>
-                
-                <div class="ajustare-masca-box">
-                    <div>Ajustare poziție cerc roșu</div>
-                    <div class="ajustare-masca-inputs">
-                        <div>
-                            <label>Poziție X:</label>
-                            <input type="range" id="m1_x" min="-100" max="100" value="0">
-                        </div>
-                        <div>
-                            <label>Poziție Y:</label>
-                            <input type="range" id="m1_y" min="-100" max="100" value="0">
-                        </div>
-                        <div>
-                            <label>Dimensiune:</label>
-                            <input type="range" id="m1_s" min="50" max="150" value="100">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>2. Moneda 2 (Masca de referință)</h3>
-                <div class="preview-box" id="boxCoala">
-                    <span style="color: #a0aec0; font-size: 14px;">Nicio imagine încărcată</span>
-                </div>
-                
-                <div class="ajustare-masca-box">
-                    <div>Ajustare poziție cerc verde</div>
-                    <div class="ajustare-masca-inputs">
-                        <div>
-                            <label>Poziție X:</label>
-                            <input type="range" id="m2_x" min="-100" max="100" value="0">
-                        </div>
-                        <div>
-                            <label>Poziție Y:</label>
-                            <input type="range" id="m2_y" min="-100" max="100" value="0">
-                        </div>
-                        <div>
-                            <label>Dimensiune:</label>
-                            <input type="range" id="m2_s" min="50" max="150" value="100">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h3>3. Rezultat Final (Blending Multiply)</h3>
-                <div class="preview-box" id="boxRezultat">
-                    <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Transferă"</span>
-                    <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
-                </div>
-            </div>
+        
+        <div>
+            <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Cartea 2 (Unghi Drept - Referință)</label>
+            <input type="file" id="incarcaCoalaGoala" accept="image/*">
         </div>
     </div>
 
-    <div id="fullscreenOverlay" class="fullscreen-overlay">
-        <span class="close-tip">Click pe imagine pentru Zoom 100% | Click pe fundal sau ESC pentru închidere</span>
-        <img id="imgFullscreen" src="" alt="Analiză desen la rezoluție maximă">
+    <div class="slider-box">
+        <label for="sensibilitate">Sensibilitate Selectare Roșu (Filtru Desen): <span id="valSensibilitate">55</span></label>
+        <input type="range" id="sensibilitate" min="15" max="140" value="55" style="width: 100%;">
+    </div>
+
+    <div>
+        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Roșu</button>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <h3>1. Cartea 1 (Detecție Automată Margini)</h3>
+            <div class="preview-box" id="boxDesen">
+                <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
+            </div>
+            <div class="info-puncte" id="instructiuniPuncte">
+                Încarcă imaginea cu cartea albă pe fundal negru.
+            </div>
+            <button id="btnResetPuncte" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
+        </div>
+
+        <div class="panel">
+            <h3>2. Cartea 2 (Detecție Automată Referință)</h3>
+            <div class="preview-box" id="boxCoala">
+                <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
+            </div>
+            <div class="info-puncte" id="instructiuniPuncteCoala">
+                Încarcă imaginea cu cartea de destinație.
+            </div>
+            <button id="btnResetPuncteCoala" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
+        </div>
+
+        <div class="panel">
+            <h3>3. Rezultat Aliniat (Doar Desenul Roșu)</h3>
+            <div class="preview-box" id="boxRezultat">
+                <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Aliniază și Transferă"</span>
+                <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- === INTERFAȚA CAMERĂ MOBIL EXCLUSIV-WEB === -->
-<div class="mobile-container">
-    <button id="btnPornesteMobile" class="btn-start-mobile">🔌 Pornește camera</button>
-    
-    <div id="cameraContainerMobile" class="camera-box-mobile">
-        <video id="videoElementMobile" autoplay playsinline></video>
-        <div class="hud-overlay-mobile">
-            <div id="viewfinderMobile" class="viewfinder-circle-mobile"></div>
-        </div>
-        <div id="statusTextMobile" class="status-box-mobile">Apropiați moneda și aliniați desenul roșu în cerc...</div>
-    </div>
-
-    <div id="resultOverlayMobile" class="result-overlay-mobile">
-        <span id="btnInchideRezultatMobile" class="close-btn-mobile">&times;</span>
-        <img id="imgRezultatFinalMobile" src="" alt="Rezultat Aliniere">
-        <div style="margin-top: 15px; font-size: 14px; color: #a0aec0; font-weight: 500;">Desen extras prin filtrare cromatică HSV</div>
-    </div>
+<div id="fullscreenOverlay" class="fullscreen-overlay">
+    <span class="close-tip">Click pe imagine pentru Zoom 100% | Click pe fundal sau ESC pentru închidere</span>
+    <img id="imgFullscreen" src="" alt="Analiză imagine la rezoluție maximă">
 </div>
 
 <script>
-    // --- SCUT GLOBAL DE ERORI PENTRU MONITORIZARE DIRECTĂ PE TELEFON --- [1]
-    window.onerror = function(message, source, lineno, colno, error) {
-        const statusMobile = document.getElementById('statusTextMobile');
-        if (statusMobile) {
-            statusMobile.innerHTML = "❌ Eroare JS: " + message + " (Linia " + lineno + ")";
-            statusMobile.style.color = "#ff073a";
-        }
-        return false;
-    };
-
-    // --- ELEMENTE DOM COMUNE ȘI DESKTOP ---
     const incarcaDesen = document.getElementById('incarcaDesen');
     const incarcaCoalaGoala = document.getElementById('incarcaCoalaGoala');
     const butonTransfer = document.getElementById('butonTransfer');
     const sliderSensibilitate = document.getElementById('sensibilitate');
     const valSensibilitate = document.getElementById('valSensibilitate');
-    
-    const m1_x = document.getElementById('m1_x');
-    const m1_y = document.getElementById('m1_y');
-    const m1_s = document.getElementById('m1_s');
-
-    const m2_x = document.getElementById('m2_x');
-    const m2_y = document.getElementById('m2_y');
-    const m2_s = document.getElementById('m2_s');
+    const instructiuniPuncte = document.getElementById('instructiuniPuncte');
+    const instructiuniPuncteCoala = document.getElementById('instructiuniPuncteCoala');
+    const btnResetPuncte = document.getElementById('btnResetPuncte');
+    const btnResetPuncteCoala = document.getElementById('btnResetPuncteCoala');
     
     const boxDesen = document.getElementById('boxDesen');
     const boxCoala = document.getElementById('boxCoala');
@@ -387,17 +151,6 @@
     const fullscreenOverlay = document.getElementById('fullscreenOverlay');
     const imgFullscreen = document.getElementById('imgFullscreen');
 
-    // --- ELEMENTE DOM MOBILE ---
-    const btnPornesteMobile = document.getElementById('btnPornesteMobile');
-    const cameraContainerMobile = document.getElementById('cameraContainerMobile');
-    const videoElementMobile = document.getElementById('videoElementMobile');
-    const viewfinderMobile = document.getElementById('viewfinderMobile');
-    const statusTextMobile = document.getElementById('statusTextMobile');
-    const resultOverlayMobile = document.getElementById('resultOverlayMobile');
-    const btnInchideRezultatMobile = document.getElementById('btnInchideRezultatMobile');
-    const imgRezultatFinalMobile = document.getElementById('imgRezultatFinalMobile');
-
-    // State comun global [1]
     let imgDesen = null;
     let imgCoalaGoala = null;
     let urlDesen = null;
@@ -408,183 +161,64 @@
     let puncteSelectate = [];
     let puncteCoala = [];
 
-    let paramsM1 = { cx: 0, cy: 0, rx: 0, ry: 0, rotation: 0 };
-    let paramsM2 = { cx: 0, cy: 0, rx: 0, ry: 0, rotation: 0 };
-
-    let cachedSrcPixels = null;
-    let cachedSrcW = 0;
-    let cachedSrcH = 0;
-
-    let mascaSursa = null;
-    let mascaSursaW = 0;
-    let mascaSursaH = 0;
-
-    let mascaDest = null;
-    let mascaDestW = 0;
-    let mascaDestH = 0;
-
     let isZoomed = false;
+    let autoTransferRulat = false;
 
-    // State cameră mobilă
-    let stream = null;
-    let videoTrack = null;
-    let isScanning = false;
-    const STATE_SCANNING = 1;
-    const STATE_CALIBRATING = 2;
-    const STATE_CAPTURING = 3;
-    let currentState = STATE_SCANNING;
+    sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
-    // State mobil hibrid/referință
-    let imgCoalaGoalaMobile = new Image(); 
-    let puncteCoalaMobile = [
-        { x: 504, y: 2016 },
-        { x: 1512, y: 3024 },
-        { x: 2520, y: 2016 },
-        { x: 1512, y: 1008 }
-    ];
-    let mascaDestMobile = null;
-    let mascaDestWMobile = 3024;
-    let mascaDestHMobile = 4032;
-
-    // Activăm afișarea textului în slider-ul desktop
-    if (sliderSensibilitate) {
-        sliderSensibilitate.addEventListener('input', () => { 
-            valSensibilitate.textContent = sliderSensibilitate.value; 
-        });
-    }
-
-    // --- FUNCTIE DE CONVERSIE RGB LA HSV --- [2]
-    function rgbToHsv(r, g, b) {
-        r /= 255; g /= 255; b /= 255;
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h, s, v = max;
-        const d = max - min;
-        s = max === 0 ? 0 : d / max;
-        if (max === min) {
-            h = 0; 
-        } else {
-            switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
-            }
-            h /= 6;
-        }
-        return { h: h * 360, s: s, v: v };
-    }
-
-    // --- CALCULATOR ADAPTIV REDNESS IN SPATIUL HSV --- [2]
-    function calculeazaRednessHSV(r, g, b) {
-        const hsv = rgbToHsv(r, g, b);
-        let hDist = hsv.h > 180 ? 360 - hsv.h : hsv.h;
-        
-        // Permite detecția unei game largi de roșu (de la tentă caldă spre portocaliu la nuanțe reci spre roz) [2]
-        if (hDist < 35 && hsv.s > 0.15 && hsv.v > 0.12) {
-            let nuantaWeight = 1.0 - (hDist / 35);
-            let satWeight = (hsv.s - 0.15) / (1.0 - 0.15);
-            let valWeight = (hsv.v - 0.12) / (1.0 - 0.12);
-            return Math.min(1.0, nuantaWeight * 1.5) * satWeight * valWeight * 255;
-        }
-        return 0;
-    }
-
-    // --- ALGORITM ADAPTIV AUTO-REGLAJ DE EXPUNERE ȘI CONTRAST (GAMMA) --- [1]
-    function autoReglajContrastLuminaViewfinder(pixels, w, h, cx, cy, r) {
-        let minL = 255, maxL = 0;
-        let sumL = 0, count = 0;
-        const r2 = r * r;
-
-        // Analizăm expunerea de pe suprafața monedei, excluzând reflexiile de pe fundal sau hârtie
-        for (let y = Math.floor(cy - r); y < Math.ceil(cy + r); y += 4) {
-            if (y < 0 || y >= h) continue;
-            for (let x = Math.floor(cx - r); x < Math.ceil(cx + r); x += 4) {
-                if (x < 0 || x >= w) continue;
-                
-                const dy = y - cy;
-                const dx = x - cx;
-                if (dx*dx + dy*dy <= r2) {
-                    const idx = (y * w + x) * 4;
-                    const luma = 0.299 * pixels[idx] + 0.587 * pixels[idx+1] + 0.114 * pixels[idx+2];
-                    if (luma < minL) minL = luma;
-                    if (luma > maxL) maxL = luma;
-                    sumL += luma;
-                    count++;
-                }
-            }
-        }
-
-        if (count === 0) return;
-        const medieLuma = sumL / count;
-
-        let gamma = 1.0;
-        if (medieLuma > 150) {
-            gamma = 1.5; // Corectare dinamică pentru a reduce efectul de supraexpunere pe suprafețele lucioase [1]
-        } else if (medieLuma < 85) {
-            gamma = 0.75; 
-        }
-
-        const range = maxL - minL || 1;
-        for (let i = 0; i < w * h * 4; i += 4) {
-            for (let c = 0; c < 3; c++) {
-                let val = pixels[i + c];
-                val = ((val - minL) / range) * 255;
-                val = Math.max(0, Math.min(255, val));
-                val = 255 * Math.pow(val / 255, gamma);
-                pixels[i + c] = Math.round(val);
-            }
-        }
-    }
-
-    // --- ALGORITM MAGIC WAND (FLOOD FILL) PENTRU DETECȚIE AUTOMATĂ ---
-    function detecteazaMonedaMagicWand(img, isPerspective) {
+    // --- ALGORITM DE DETECȚIE BAZAT PE FLOOD-FILL EXTENSION (Exterior-Interior) ---
+    function detecteazaColturiCarte(img) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-        const imgW = img.naturalWidth || img.width || 600;
-        const imgH = img.naturalHeight || img.height || 600;
         
-        const maxDim = 150;
-        const scale = maxDim / Math.max(imgW, imgH);
-        const sizeW = Math.round(imgW * scale);
-        const sizeH = Math.round(imgH * scale);
+        const maxDim = 200; 
+        const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
+        const w = Math.round(img.naturalWidth * scale);
+        const h = Math.round(img.naturalHeight * scale);
         
-        tempCanvas.width = sizeW;
-        tempCanvas.height = sizeH;
-        tempCtx.drawImage(img, 0, 0, sizeW, sizeH);
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        tempCtx.drawImage(img, 0, 0, w, h);
         
-        const imgData = tempCtx.getImageData(0, 0, sizeW, sizeH);
-        const pixeli = imgData.data;
+        const imgData = tempCtx.getImageData(0, 0, w, h);
+        const pixels = imgData.data;
         
-        const lumaList = new Float32Array(sizeW * sizeH);
-        for (let i = 0; i < sizeW * sizeH; i++) {
+        const lumas = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++) {
             const idx = i * 4;
-            lumaList[i] = 0.299 * pixeli[idx] + 0.587 * pixeli[idx+1] + 0.114 * pixeli[idx+2];
+            lumas[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx+1] + 0.114 * pixels[idx+2];
         }
         
         const cornerLumas = [
-            lumaList[0],
-            lumaList[sizeW - 1],
-            lumaList[(sizeH - 1) * sizeW],
-            lumaList[sizeH * sizeW - 1]
+            lumas[0],
+            lumas[w - 1],
+            lumas[(h - 1) * w],
+            lumas[h * w - 1]
         ];
-        const avgBorderLuma = cornerLumas.reduce((a, b) => a + b, 0) / 4;
+        const avgBackgroundLuma = cornerLumas.reduce((a, b) => a + b, 0) / 4;
         
-        let minL = 255;
-        let maxL = 0;
-        for (let i = 0; i < sizeW * sizeH; i++) {
-            if (lumaList[i] < minL) minL = lumaList[i];
-            if (lumaList[i] > maxL) maxL = lumaList[i];
+        let maxLuma = 0;
+        for (let i = 0; i < w * h; i++) {
+            if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        const threshold = avgBorderLuma + (maxL - avgBorderLuma) * 0.40;
-        const visited = new Uint8Array(sizeW * sizeH);
+        const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.25;
+        
+        const visited = new Uint8Array(w * h);
         const queue = [];
         
-        const corners = [[0, 0], [sizeW - 1, 0], [0, sizeH - 1], [sizeW - 1, sizeH - 1]];
-        corners.forEach(([cx, cy]) => {
-            const idx = cy * sizeW + cx;
-            visited[idx] = 1;
-            queue.push({ x: cx, y: cy });
-        });
+        for (let x = 0; x < w; x++) {
+            visited[x] = 1;
+            queue.push({ x, y: 0 });
+            visited[(h - 1) * w + x] = 1;
+            queue.push({ x, y: h - 1 });
+        }
+        for (let y = 1; y < h - 1; y++) {
+            visited[y * w] = 1;
+            queue.push({ x: 0, y });
+            visited[y * w + (w - 1)] = 1;
+            queue.push({ x: w - 1, y });
+        }
         
         let head = 0;
         const dx = [1, -1, 0, 0];
@@ -592,202 +226,194 @@
         
         while (head < queue.length) {
             const curr = queue[head++];
+            
             for (let i = 0; i < 4; i++) {
                 const nx = curr.x + dx[i];
                 const ny = curr.y + dy[i];
-                if (nx >= 0 && nx < sizeW && ny >= 0 && ny < sizeH) {
-                    const nidx = ny * sizeW + nx;
-                    if (visited[nidx] === 0 && lumaList[nidx] < threshold) {
-                        visited[nidx] = 1;
-                        queue.push({ x: nx, y: ny });
+                
+                if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                    const nidx = ny * w + nx;
+                    if (visited[nidx] === 0) {
+                        if (lumas[nidx] < pragBinarizare) {
+                            visited[nidx] = 1;
+                            queue.push({ x: nx, y: ny });
+                        }
                     }
                 }
             }
         }
         
-        const coinMask = new Uint8Array(sizeW * sizeH);
-        let m00 = 0, m10 = 0, m01 = 0;
-        for (let i = 0; i < sizeW * sizeH; i++) {
-            if (visited[i] === 0) {
-                coinMask[i] = 1;
-                m00++;
-                m10 += i % sizeW;
-                m01 += Math.floor(i / sizeW);
+        const puncteCard = [];
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (visited[y * w + x] === 0) {
+                    puncteCard.push({ x, y });
+                }
             }
         }
         
         const defaultPoints = () => {
-            const cx = imgW * 0.5;
-            const cy = imgH * 0.5;
-            const rx = Math.min(imgW, imgH) * 0.3;
-            const ry = isPerspective ? rx * 0.7 : rx;
+            const cx = img.naturalWidth * 0.5;
+            const cy = img.naturalHeight * 0.5;
+            const rw = img.naturalWidth * 0.25;
+            const rh = rw * 1.4;
             return [
-                { x: cx - rx, y: cy }, 
-                { x: cx,      y: cy + ry }, 
-                { x: cx + rx, y: cy }, 
-                { x: cx,      y: cy - ry }
+                { x: cx - rw, y: cy - rh },
+                { x: cx + rw, y: cy - rh },
+                { x: cx + rw, y: cy + rh },
+                { x: cx - rw, y: cy + rh }
             ];
         };
 
-        if (m00 < 100) {
-            return { puncte: defaultPoints(), optimalThreshold: 110, mask: null, maskW: sizeW, maskH: sizeH };
+        if (puncteCard.length < 100) {
+            return defaultPoints();
         }
         
-        const xc = m10 / m00;
-        const yc = m01 / m00;
-        let mu20 = 0, mu02 = 0, mu11 = 0;
-        let sumCoinLuma = 0;
-        let countCoinLuma = 0;
-
-        for (let y = 0; y < sizeH; y++) {
-            for (let x = 0; x < sizeW; x++) {
-                const idx = y * sizeW + x;
-                if (coinMask[idx] === 1) {
-                    const dx = x - xc;
-                    const dy = y - yc;
-                    mu20 += dx * dx;
-                    mu02 += dy * dy;
-                    mu11 += dx * dy;
-                    const luma = lumaList[idx];
-                    if (luma > minL + (maxL - minL) * 0.25) {
-                        sumCoinLuma += luma;
-                        countCoinLuma++;
-                    }
-                }
+        let minSum = Infinity, maxSum = -Infinity;
+        let minDiff = Infinity, maxDiff = -Infinity;
+        
+        let tl = puncteCard[0], tr = puncteCard[0], br = puncteCard[0], bl = puncteCard[0];
+        
+        for (let i = 0; i < puncteCard.length; i++) {
+            const p = puncteCard[i];
+            const sum = p.x + p.y;
+            const diff = p.x - p.y;
+            
+            if (sum < minSum) {
+                minSum = sum;
+                tl = p;
+            }
+            if (sum > maxSum) {
+                maxSum = sum;
+                br = p;
+            }
+            if (diff > maxDiff) {
+                maxDiff = diff;
+                tr = p;
+            }
+            if (diff < minDiff) {
+                minDiff = diff;
+                bl = p;
             }
         }
         
-        const mu20_prime = mu20 / m00;
-        const mu02_prime = mu02 / m00;
-        const mu11_prime = mu11 / m00;
-        
-        const common = Math.sqrt(4 * mu11_prime * mu11_prime + (mu20_prime - mu02_prime) * (mu20_prime - mu02_prime));
-        const lambda1 = (mu20_prime + mu02_prime + common) / 2;
-        const lambda2 = (mu20_prime + mu02_prime - common) / 2;
-        
-        const a = 2 * Math.sqrt(lambda1);
-        const b = 2 * Math.sqrt(lambda2);
-        const theta = 0.5 * Math.atan2(2 * mu11_prime, mu20_prime - mu02_prime);
-        
         const scaleFactor = 1 / scale;
-        const xc_orig = xc * scaleFactor;
-        const yc_orig = yc * scaleFactor;
-        const a_orig = a * scaleFactor;
-        const b_orig = b * scaleFactor;
-        
-        const coinLumaAvg = countCoinLuma > 0 ? (sumCoinLuma / countCoinLuma) : (minL + maxL) / 2;
-        const optimalThreshold = Math.round(minL + (coinLumaAvg - minL) * 0.65);
-
-        const puncte = [
-            { x: xc_orig - a_orig * Math.cos(theta), y: yc_orig - a_orig * Math.sin(theta) }, 
-            { x: xc_orig - b_orig * Math.sin(theta), y: yc_orig + b_orig * Math.cos(theta) }, 
-            { x: xc_orig + a_orig * Math.cos(theta), y: yc_orig + a_orig * Math.sin(theta) }, 
-            { x: xc_orig + b_orig * Math.sin(theta), y: yc_orig - b_orig * Math.cos(theta) }
+        return [
+            { x: tl.x * scaleFactor, y: tl.y * scaleFactor }, 
+            { x: tr.x * scaleFactor, y: tr.y * scaleFactor }, 
+            { x: br.x * scaleFactor, y: br.y * scaleFactor }, 
+            { x: bl.x * scaleFactor, y: bl.y * scaleFactor }  
         ];
-
-        return { puncte, optimalThreshold, mask: coinMask, maskW: sizeW, maskH: sizeH };
     }
 
-    // --- Cache pixeli originali ai Monedei 1 ---
-    function cacheSursaPixeli() {
+    // --- REUTILIZARE LOGICĂ DE PROCESARE IMAGINI ---
+    function handleIncarcareImagineSursa(img) {
+        imgDesen = img;
+        boxDesen.innerHTML = '<canvas id="canvasSelectie" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+        canvasSelectie = document.getElementById('canvasSelectie');
+        canvasSelectie.addEventListener('click', ascultaClickSelectie);
+        
+        puncteSelectate = detecteazaColturiCarte(imgDesen);
+        btnResetPuncte.style.display = 'inline-block';
+        randeazaSelectie();
+        actualizeazaInfoPuncte();
+        
+        verificaSiRuleazaTransferAuto();
+    }
+
+    function handleIncarcareImagineDestinatie(img) {
+        imgCoalaGoala = img;
+        boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+        canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
+        canvasSelectieCoala.addEventListener('click', ascultaClickSelectieCoala);
+        
+        puncteCoala = detecteazaColturiCarte(imgCoalaGoala);
+        btnResetPuncteCoala.style.display = 'inline-block';
+        randeazaSelectieCoala();
+        actualizeazaInfoPuncteCoala();
+        
+        verificaSiRuleazaTransferAuto();
+    }
+
+    // Declanșare automată transfer la încărcarea inițială
+    function verificaSiRuleazaTransferAuto() {
+        if (imgDesen && imgCoalaGoala && !autoTransferRulat) {
+            setTimeout(() => {
+                executaTransfer();
+                autoTransferRulat = true; 
+            }, 300);
+        }
+    }
+
+    // --- EVENIMENTE DE ÎNCĂRCARE MANUALĂ (PĂSTRATE DE LA UTILIZATOR) ---
+    incarcaDesen.addEventListener('change', (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        if (urlDesen) URL.revokeObjectURL(urlDesen);
+        
+        const img = new Image();
+        img.onload = () => handleIncarcareImagineSursa(img);
+        urlDesen = URL.createObjectURL(e.target.files[0]);
+        img.src = urlDesen;
+    });
+
+    incarcaCoalaGoala.addEventListener('change', (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        if (urlCoalaGoala) URL.revokeObjectURL(urlCoalaGoala);
+        
+        const img = new Image();
+        img.onload = () => handleIncarcareImagineDestinatie(img);
+        urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
+        img.src = urlCoalaGoala;
+    });
+
+    function ascultaClickSelectie(e) {
         if (!imgDesen) return;
-        cachedSrcW = imgDesen.naturalWidth;
-        cachedSrcH = imgDesen.naturalHeight;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = cachedSrcW;
-        tempCanvas.height = cachedSrcH;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(imgDesen, 0, 0);
+        const rect = canvasSelectie.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
         
-        const imgData = tempCtx.getImageData(0, 0, cachedSrcW, cachedSrcH);
-        autoReglajContrastLuminaViewfinder(imgData.data, cachedSrcW, cachedSrcH, cachedSrcW/2, cachedSrcH/2, Math.min(cachedSrcW, cachedSrcH)/2);
-        tempCtx.putImageData(imgData, 0, 0);
+        const pX = (clickX / rect.width) * imgDesen.naturalWidth;
+        const pY = (clickY / rect.height) * imgDesen.naturalHeight;
         
-        cachedSrcPixels = imgData.data;
+        modificaPunctCelMaiApropiat(puncteSelectate, pX, pY);
+        randeazaSelectie();
     }
 
-    // --- INCARCARE DESKTOP ---
-    if (incarcaDesen) {
-        incarcaDesen.addEventListener('change', (e) => {
-            if (!e.target.files || !e.target.files[0]) return;
-            if (urlDesen) URL.revokeObjectURL(urlDesen);
-            
-            imgDesen = new Image();
-            imgDesen.onload = () => {
-                boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
-                canvasSelectie = document.getElementById('canvasSelectie');
-                
-                const rezultat = detecteazaMonedaMagicWand(imgDesen, true);
-                puncteSelectate = rezultat.puncte;
-                mascaSursa = rezultat.mask;
-                mascaSursaW = rezultat.maskW;
-                mascaSursaH = rezultat.maskH;
-                
-                const baseParams = getEllipseParams(puncteSelectate);
-                paramsM1 = {
-                    cx: baseParams.cx,
-                    cy: baseParams.cy,
-                    rx: baseParams.rx,
-                    ry: baseParams.ry,
-                    rotation: baseParams.rotation
-                };
+    function ascultaClickSelectieCoala(e) {
+        if (!imgCoalaGoala) return;
+        const rect = canvasSelectieCoala.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        
+        const pX = (clickX / rect.width) * imgCoalaGoala.naturalWidth;
+        const pY = (clickY / rect.height) * imgCoalaGoala.naturalHeight;
+        
+        modificaPunctCelMaiApropiat(puncteCoala, pX, pY);
+        randeazaSelectieCoala();
+    }
 
-                m1_x.value = 0;
-                m1_y.value = 0;
-                m1_s.value = 100;
-
-                sliderSensibilitate.value = 110; 
-                valSensibilitate.textContent = 110;
-
-                cacheSursaPixeli();
-                randeazaSelectie();
-                actualizeazaInfoPuncte();
-            };
-            urlDesen = URL.createObjectURL(e.target.files[0]);
-            imgDesen.src = urlDesen;
+    function modificaPunctCelMaiApropiat(puncte, x, y) {
+        let distMinima = Infinity;
+        let indexApropiat = -1;
+        
+        puncte.forEach((p, index) => {
+            const distanta = Math.hypot(p.x - x, p.y - y);
+            if (distanta < distMinima) {
+                distMinima = distanta;
+                indexApropiat = index;
+            }
         });
-
-        incarcaCoalaGoala.addEventListener('change', (e) => {
-            if (!e.target.files || !e.target.files[0]) return;
-            if (urlCoalaGoala) URL.revokeObjectURL(urlCoalaGoala);
-            
-            imgCoalaGoala = new Image();
-            imgCoalaGoala.onload = () => {
-                boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
-                canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
-                
-                const rezultat = detecteazaMonedaMagicWand(imgCoalaGoala, false);
-                puncteCoala = rezultat.puncte;
-                mascaDest = rezultat.mask;
-                mascaDestW = rezultat.maskW;
-                mascaDestH = rezultat.maskH;
-                
-                const baseParams = getEllipseParams(puncteCoala);
-                paramsM2 = {
-                    cx: baseParams.cx,
-                    cy: baseParams.cy,
-                    rx: baseParams.rx,
-                    ry: baseParams.ry,
-                    rotation: baseParams.rotation
-                };
-
-                m2_x.value = 0;
-                m2_y.value = 0;
-                m2_s.value = 100;
-                
-                randeazaSelectieCoala();
-                actualizeazaInfoPuncteCoala();
-            };
-            urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
-            imgCoalaGoala.src = urlCoalaGoala;
-        });
+        
+        if (indexApropiat !== -1) {
+            puncte[indexApropiat] = { x, y };
+        }
     }
 
     function randeazaSelectie() {
         if (!imgDesen || !canvasSelectie) return;
         const ctxSel = canvasSelectie.getContext('2d');
         const boxW = boxDesen.clientWidth;
-        const boxH = 280;
+        const boxH = 250;
         const aspect = imgDesen.naturalWidth / imgDesen.naturalHeight;
         
         let dispW = boxW;
@@ -800,14 +426,15 @@
         canvasSelectie.width = dispW;
         canvasSelectie.height = dispH;
         ctxSel.drawImage(imgDesen, 0, 0, dispW, dispH);
-        randeazaGeometrieElipsa(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
+        
+        randeazaGeometriePatrulater(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
     }
 
     function randeazaSelectieCoala() {
         if (!imgCoalaGoala || !canvasSelectieCoala) return;
         const ctxSel = canvasSelectieCoala.getContext('2d');
         const boxW = boxCoala.clientWidth;
-        const boxH = 280;
+        const boxH = 250;
         const aspect = imgCoalaGoala.naturalWidth / imgCoalaGoala.naturalHeight;
         
         let dispW = boxW;
@@ -820,36 +447,80 @@
         canvasSelectieCoala.width = dispW;
         canvasSelectieCoala.height = dispH;
         ctxSel.drawImage(imgCoalaGoala, 0, 0, dispW, dispH);
-        randeazaGeometrieElipsa(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
+        
+        randeazaGeometriePatrulater(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
     }
 
-    function randeazaGeometrieElipsa(ctxSel, puncte, img, dispW, dispH, culoare) {
-        if (!puncte || puncte.length !== 4) return;
+    function randeazaGeometriePatrulater(ctxSel, puncte, img, dispW, dispH, culoare) {
+        if (puncte.length !== 4) return;
+
         const dPts = puncte.map(p => ({
             x: (p.x / img.naturalWidth) * dispW,
             y: (p.y / img.naturalHeight) * dispH
         }));
-        const params = getEllipseParams(dPts);
+        
         ctxSel.strokeStyle = culoare;
         ctxSel.lineWidth = 3;
         ctxSel.beginPath();
-        ctxSel.ellipse(params.cx, params.cy, params.rx, params.ry, params.rotation, 0, 2 * Math.PI);
+        ctxSel.moveTo(dPts[0].x, dPts[0].y);
+        ctxSel.lineTo(dPts[1].x, dPts[1].y);
+        ctxSel.lineTo(dPts[2].x, dPts[2].y);
+        ctxSel.lineTo(dPts[3].x, dPts[3].y);
+        ctxSel.closePath();
         ctxSel.stroke();
-        ctxSel.fillStyle = culoare + '1a'; 
-        ctxSel.fill();
+        
+        ctxSel.strokeStyle = culoare + '44';
+        ctxSel.lineWidth = 1;
+        ctxSel.setLineDash([4, 4]);
+        ctxSel.beginPath();
+        ctxSel.moveTo(dPts[0].x, dPts[0].y);
+        ctxSel.lineTo(dPts[2].x, dPts[2].y);
+        ctxSel.moveTo(dPts[1].x, dPts[1].y);
+        ctxSel.lineTo(dPts[3].x, dPts[3].y);
+        ctxSel.stroke();
+        ctxSel.setLineDash([]);
+        
+        ctxSel.fillStyle = culoare;
+        dPts.forEach((p, index) => {
+            ctxSel.beginPath();
+            ctxSel.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+            ctxSel.fill();
+            
+            ctxSel.fillStyle = '#ffffff';
+            ctxSel.font = 'bold 10px sans-serif';
+            ctxSel.textAlign = 'center';
+            ctxSel.textBaseline = 'middle';
+            ctxSel.fillText((index + 1).toString(), p.x, p.y);
+            ctxSel.fillStyle = culoare;
+        });
     }
 
     function actualizeazaInfoPuncte() {
         if (!imgDesen) return;
-        const target = document.getElementById('instructiuniPuncte');
-        if (target) target.textContent = "Imaginea 1 a fost încărcată și mascată.";
+        instructiuniPuncte.innerHTML = "<span style='color: #28a745;'>Colțuri exterioare detectate automat! Glisați punctele pentru corecții manuale fine.</span>";
     }
 
     function actualizeazaInfoPuncteCoala() {
         if (!imgCoalaGoala) return;
-        const target = document.getElementById('instructiuniPuncteCoala');
-        if (target) target.textContent = "Imaginea 2 a fost încărcată și mascată.";
+        instructiuniPuncteCoala.innerHTML = "<span style='color: #28a745;'>Aliniere automată finalizată pe conturul cărții de referință.</span>";
     }
+
+    btnResetPuncte.addEventListener('click', () => {
+        if (!imgDesen) return;
+        puncteSelectate = detecteazaColturiCarte(imgDesen);
+        randeazaSelectie();
+    });
+
+    btnResetPuncteCoala.addEventListener('click', () => {
+        if (!imgCoalaGoala) return;
+        puncteCoala = detecteazaColturiCarte(imgCoalaGoala);
+        randeazaSelectieCoala();
+    });
+
+    window.addEventListener('resize', () => {
+        if (imgDesen) randeazaSelectie();
+        if (imgCoalaGoala) randeazaSelectieCoala();
+    });
 
     // --- Matematică Homografie ---
     function solve8x8(A, B) {
@@ -863,13 +534,19 @@
                     maxRow = k;
                 }
             }
+            
             const tmpRow = A[maxRow];
             A[maxRow] = A[i];
             A[i] = tmpRow;
+
             const tmpB = B[maxRow];
             B[maxRow] = B[i];
             B[i] = tmpB;
-            if (Math.abs(A[i][i]) < 1e-10) return [1, 0, 0, 0, 1, 0, 0, 0];
+
+            if (Math.abs(A[i][i]) < 1e-10) {
+                return [1, 0, 0, 0, 1, 0, 0, 0];
+            }
+
             for (let k = i + 1; k < n; k++) {
                 const c = -A[k][i] / A[i][i];
                 A[k][i] = 0;
@@ -879,6 +556,7 @@
                 B[k] += c * B[i];
             }
         }
+        
         const x = new Array(n).fill(0);
         for (let i = n - 1; i >= 0; i--) {
             let sum = B[i];
@@ -898,539 +576,195 @@
             const y = src[i][1];
             const u = dst[i][0];
             const v = dst[i][1];
+
             A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
             B.push(u);
+
             A.push([0, 0, 0, x, y, 1, -v * x, -v * y]);
             B.push(v);
         }
         const h = solve8x8(A, B);
-        return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1.0];
+        return [
+            h[0], h[1], h[2],
+            h[3], h[4], h[5],
+            h[6], h[7], 1.0
+        ];
     }
 
-    function getMaskValue(x, y, mask, maskW, maskH, srcW, srcH) {
-        if (!mask) return 1.0; 
-        const mx = (x / srcW) * (maskW - 1);
-        const my = (y / srcH) * (maskH - 1);
-        const x0 = Math.floor(mx);
-        const y0 = Math.floor(my);
-        const x1 = Math.min(maskW - 1, x0 + 1);
-        const y1 = Math.min(maskH - 1, y0 + 1);
-        const dx = mx - x0;
-        const dy = my - y0;
-        if (x0 >= 0 && x0 < maskW && y0 >= 0 && y0 < maskH) {
-            const val00 = mask[y0 * maskW + x0];
-            const val10 = mask[y0 * maskW + x1];
-            const val01 = mask[y1 * maskW + x0];
-            const val11 = mask[y1 * maskW + x1];
-            return (1 - dx) * (1 - dy) * val00 + dx * (1 - dy) * val10 + (1 - dx) * dy * val01 + dx * dy * val11;
+    function isPointInQuad(x, y, quad) {
+        let inside = false;
+        for (let i = 0, j = 3; i < 4; j = i++) {
+            const xi = quad[i][0], yi = quad[i][1];
+            const xj = quad[j][0], yj = quad[j][1];
+            const intersect = ((yi > y) !== (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
         }
-        return 0.0;
+        return inside;
     }
 
-    // --- PROCESUL DE TRANSFER DESKTOP REPARAT (MANUAL MULTIPLY) ---
-    if (butonTransfer) {
-        butonTransfer.addEventListener('click', () => {
-            if (!imgDesen || !imgCoalaGoala) {
-                alert("Eroare: Ambele imagini trebuie încărcate!");
-                return;
-            }
-            butonTransfer.textContent = "⌛ Se procesează...";
-            butonTransfer.disabled = true;
+    // --- EXECUȚIA TRANSFERULUI ---
+    function executaTransfer() {
+        if (!imgDesen || !imgCoalaGoala) return;
 
-            setTimeout(() => {
-                try {
-                    const latime = imgCoalaGoala.naturalWidth || imgCoalaGoala.width || 600;
-                    const inaltime = imgCoalaGoala.naturalHeight || imgCoalaGoala.height || 600;
+        butonTransfer.textContent = "⌛ Se procesează...";
+        butonTransfer.disabled = true;
 
-                    canvas.width = latime;
-                    canvas.height = inaltime;
-                    textInfoRezultat.style.display = 'none';
-                    canvas.style.display = 'block';
+        setTimeout(() => {
+            const latime = imgCoalaGoala.naturalWidth;
+            const inaltime = imgCoalaGoala.naturalHeight;
 
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.drawImage(imgCoalaGoala, 0, 0);
+            canvas.width = latime;
+            canvas.height = inaltime;
+            textInfoRezultat.style.display = 'none';
+            canvas.style.display = 'block';
 
-                    const dstImgData = ctx.getImageData(0, 0, latime, inaltime);
-                    const dstPixels = dstImgData.data;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(imgCoalaGoala, 0, 0);
 
-                    const srcW = imgDesen.naturalWidth;
-                    const srcH = imgDesen.naturalHeight;
-                    const srcPixels = cachedSrcPixels; 
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = imgDesen.naturalWidth;
+            srcCanvas.height = imgDesen.naturalHeight;
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(imgDesen, 0, 0);
+            const srcImgData = srcCtx.getImageData(0, 0, imgDesen.naturalWidth, imgDesen.naturalHeight);
+            const srcPixels = srcImgData.data;
 
-                    const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-                    const dstPoints = puncteCoala.map(p => [p.x, p.y]);
+            const srcW = imgDesen.naturalWidth;
+            const srcH = imgDesen.naturalHeight;
 
-                    const H = getHomographyMatrix(dstPoints, srcPoints);
-                    const h00 = H[0], h01 = H[1], h02 = H[2];
-                    const h10 = H[3], h11 = H[4], h12 = H[5];
-                    const h20 = H[6], h21 = H[7], h22 = H[8];
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = latime;
+            tempCanvas.height = inaltime;
 
-                    // LOGICĂ DE TRANZIȚIE STRÂNSĂ PENTRU INTENSITATE MAXIMĂ (DESKTOP) [1]
-                    const pragSensibilitate = parseInt(sliderSensibilitate.value);
-                    const tranzitie = 25;
-                    const pragMinim = pragSensibilitate;
-                    const pragMaxim = Math.min(255, pragSensibilitate + tranzitie);
+            const imgDataDesen = tempCtx.createImageData(latime, inaltime);
+            const outPixels = imgDataDesen.data;
 
-                    const xs = puncteCoala.map(p => p.x);
-                    const ys = puncteCoala.map(p => p.y);
-                    const uMin = Math.max(0, Math.floor(Math.min(...xs)));
-                    const uMax = Math.min(latime - 1, Math.ceil(Math.max(...xs)));
-                    const vMin = Math.max(0, Math.floor(Math.min(...ys)));
-                    const vMax = Math.min(inaltimeDest - 1, Math.ceil(Math.max(...ys)));
+            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
+            const dstPoints = puncteCoala.map(p => [p.x, p.y]);
 
-                    for (let v = vMin; v <= vMax; v++) {
-                        for (let u = uMin; u <= uMax; u++) {
-                            const destIdx = (v * latime + u) * 4;
-                            const valMascaDest = getMaskValue(u, v, mascaDest, mascaDestW, mascaDestH, latime, inaltime);
-
-                            if (valMascaDest > 0.0) {
-                                const denom = h20 * u + h21 * v + 1.0;
-                                const sx = (h00 * u + h01 * v + h02) / denom;
-                                const sy = (h10 * u + h11 * v + h12) / denom;
-
-                                const x0 = Math.floor(sx);
-                                const y0 = Math.floor(sy);
-
-                                if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                                    const valMascaSursa = getMaskValue(sx, sy, mascaSursa, mascaSursaW, mascaSursaH, srcW, srcH);
-
-                                    if (valMascaSursa > 0.0) {
-                                        const dx_s = sx - x0;
-                                        const dy_s = sy - y0;
-
-                                        const idx00 = (y0 * srcW + x0) * 4;
-                                        const idx10 = idx00 + 4;
-                                        const idx01 = idx00 + srcW * 4;
-                                        const idx11 = idx01 + 4;
-
-                                        let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
-                                        let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
-                                        let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
-
-                                        let rednessValue = calculeazaRednessHSV(r, g, b);
-
-                                        let alpha = 0;
-                                        if (rednessValue >= pragMaxim) {
-                                            alpha = 1.0; 
-                                        } else if (rednessValue > pragMinim) {
-                                            alpha = (rednessValue - pragMinim) / (pragMaxim - pragMinim); 
-                                        }
-
-                                        const alphaFinal = alpha * valMascaSursa * valMascaDest;
-
-                                        if (alphaFinal > 0.0) {
-                                            const r_bg = dstPixels[destIdx];
-                                            const g_bg = dstPixels[destIdx + 1];
-                                            const b_bg = dstPixels[destIdx + 2];
-
-                                            const r_blend = (r * r_bg) / 255;
-                                            const g_blend = (g * g_bg) / 255;
-                                            const b_blend = (b * b_bg) / 255;
-
-                                            dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
-                                            dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
-                                            dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    ctx.putImageData(dstImgData, 0, 0);
-                } catch (err) {
-                    console.error("Eroare transfer desktop:", err);
-                    alert("Eroare la procesarea imaginilor. Verificați alinierea!");
-                }
-                butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul";
-                butonTransfer.disabled = false;
-            }, 50);
-        });
-    }
-
-    // --- Extragere parametri elipsă ---
-    function getEllipseParams(pts) {
-        if (!pts || pts.length < 4) return { cx: 0, cy: 0, rx: 0, ry: 0, rotation: 0 };
-        const p1 = pts[0];
-        const p2 = pts[1];
-        const p3 = pts[2];
-        const p4 = pts[3];
-
-        const cx = (p1.x + p2.x + p3.x + p4.x) / 4;
-        const cy = (p1.y + p2.y + p3.y + p4.y) / 4;
-
-        const rx = Math.hypot(p3.x - p1.x, p3.y - p1.y) / 2;
-        const ry = Math.hypot(p4.x - p2.x, p4.y - p2.y) / 2;
-        const rotation = 0;
-
-        return { cx, cy, rx, ry, rotation };
-    }
-
-    // ==========================================
-    // === SCRIPT ȘI LOGICĂ CAMERĂ AUTOMATĂ MOBIL ===
-    // ==========================================
-
-    function intraInFullscreenMobile() {
-        const docEl = document.documentElement;
-        try {
-            if (docEl.requestFullscreen) {
-                docEl.requestFullscreen().catch(() => {});
-            } else if (docEl.webkitRequestFullscreen) {
-                docEl.webkitRequestFullscreen();
-            }
-        } catch (err) {
-            console.warn("Fullscreen-ul nu a putut fi declanșat:", err);
-        }
-    }
-
-    imgCoalaGoalaMobile.onload = () => {
-        const rezu = detecteazaMonedaMagicWand(imgCoalaGoalaMobile, false);
-        puncteCoalaMobile = rezu.puncte;
-        mascaDestMobile = rezu.mask;
-        mascaDestWMobile = rezu.maskW;
-        mascaDestHMobile = rezu.maskH;
-    };
-    imgCoalaGoalaMobile.onerror = () => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 3024;
-        tempCanvas.height = 4032;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.fillStyle = '#11141a';
-        tempCtx.fillRect(0, 0, 3024, 4032);
-        tempCtx.fillStyle = '#718096';
-        tempCtx.beginPath();
-        tempCtx.arc(1512, 2016, 1100, 0, 2 * Math.PI);
-        tempCtx.fill();
-        imgCoalaGoalaMobile.src = tempCanvas.toDataURL();
-    };
-    imgCoalaGoalaMobile.src = "moneda-front.jpg";
-
-    async function pornesteFluxCameraMobile() {
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error("Accesul la cameră este blocat de browser. Pagina trebuie accesată obligatoriu prin protocol securizat HTTPS pentru a funcționa camera live!");
-            }
-
-            intraInFullscreenMobile();
-
-            const profileConstraints = [
-                { video: { facingMode: 'environment', width: { ideal: 3024 }, height: { ideal: 4032 } } },
-                { video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } } },
-                { video: { facingMode: 'environment' } }
-            ];
-
-            let lastError = null;
-            for (let i = 0; i < profileConstraints.length; i++) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(profileConstraints[i]);
-                    videoTrack = stream.getVideoTracks()[0];
-                    break; 
-                } catch (err) {
-                    lastError = err;
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                }
-            }
-
-            if (!stream) {
-                throw new Error(lastError ? lastError.toString() : "Camera spate nu a fost detectată.");
-            }
-            
-            videoElementMobile.srcObject = stream;
-            
-            btnPornesteMobile.style.display = 'none';
-            cameraContainerMobile.style.display = 'block';
-            isScanning = true;
-            currentState = STATE_SCANNING;
-            
-            viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "Aliniați moneda în cerc și țineți telefonul stabil...";
-            statusTextMobile.style.color = "#00bfff";
-            
-            requestAnimationFrame(analizaFrameMobile);
-        } catch (e) {
-            const statusMobile = document.getElementById('statusTextMobile');
-            if (statusMobile) {
-                statusMobile.innerHTML = "❌ Eroare cameră: " + e.message;
-                statusMobile.style.color = "#ff073a";
-            }
-        }
-    }
-
-    function opresteFluxCameraMobile() {
-        isScanning = false;
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-        }
-        videoElementMobile.srcObject = null;
-        cameraContainerMobile.style.display = 'none';
-        if (btnPornesteMobile) btnPornesteMobile.style.display = 'inline-block';
-    }
-
-    btnPornesteMobile.addEventListener('click', () => {
-        pornesteFluxCameraMobile();
-    });
-
-    btnInchideRezultatMobile.addEventListener('click', () => {
-        resultOverlayMobile.style.display = 'none';
-        imgRezultatFinalMobile.src = '';
-        pornesteFluxCameraMobile(); 
-    });
-
-    // --- ANALIZĂ LIVE PE CADRU (PENTRU DETECȚIE ȘI STABILIZARE) ---
-    function calculeazaClaritateRosieMobile(ctx, w, h) {
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const pixels = imgData.data;
-        let sumGrad = 0;
-        let countRed = 0;
-        
-        for (let y = 2; y < h - 2; y += 2) {
-            for (let x = 2; x < w - 2; x += 2) {
-                const idx = (y * w + x) * 4;
-                const r = pixels[idx];
-                const g = pixels[idx+1];
-                const b = pixels[idx+2];
-                
-                let rednessValue = calculeazaRednessHSV(r, g, b);
-                if (rednessValue > 95) {
-                    countRed++;
-                    const idxRight = idx + 4;
-                    const idxDown = idx + w * 4;
-                    const gradX = Math.abs(r - pixels[idxRight]);
-                    const gradY = Math.abs(r - pixels[idxDown]);
-                    sumGrad += (gradX + gradY);
-                }
-            }
-        }
-        
-        const totalPixelsAnalyzed = (w * h) / 4;
-        return {
-            ratio: countRed / totalPixelsAnalyzed,
-            sharpness: countRed > 0 ? (sumGrad / countRed) : 0
-        };
-    }
-
-    async function analizaFrameMobile() {
-        if (!isScanning || currentState === STATE_CAPTURING) return;
-
-        if (videoElementMobile.readyState === videoElementMobile.HAVE_ENOUGH_DATA) {
-            const size = 150;
-            analysisCanvas.width = size;
-            analysisCanvas.height = size;
-            const sx = (videoElementMobile.videoWidth - size) / 2;
-            const sy = (videoElementMobile.videoHeight - size) / 2;
-            analysisCtx.drawImage(videoElementMobile, sx, sy, size, size, 0, 0, size, size);
-            
-            const metrice = calculeazaClaritateRosieMobile(analysisCtx, size, size);
-            
-            if (currentState === STATE_SCANNING) {
-                if (metrice.ratio > 0.012) { 
-                    currentState = STATE_CALIBRATING;
-                    viewfinderMobile.className = 'viewfinder-circle-mobile calibrating';
-                    statusTextMobile.textContent = "Țineți telefonul nemișcat pentru procesare...";
-                    statusTextMobile.style.color = "#39ff14";
-                    
-                    setTimeout(declanseazaCapturaFotoMobile, 1200); 
-                }
-            }
-        }
-        requestAnimationFrame(analizaFrameMobile);
-    }
-
-    // --- DECLANȘARE ȘI CORECTARE GEOMETRICĂ PRIN HOMOGRAFIE --- [1, 3]
-    function declanseazaCapturaFotoMobile() {
-        try {
-            currentState = STATE_CAPTURING;
-            statusTextMobile.textContent = "Ajustare contur și unghi perspectivă...";
-            
-            const capW = videoElementMobile.videoWidth || 3024;
-            const capH = videoElementMobile.videoHeight || 4032;
-            
-            const capturedCanvas = document.createElement('canvas');
-            capturedCanvas.width = capW;
-            capturedCanvas.height = capH;
-            const capCtx = capturedCanvas.getContext('2d');
-            capCtx.drawImage(videoElementMobile, 0, 0, capW, capH); 
-            
-            const imgData = capCtx.getImageData(0, 0, capW, capH);
-            
-            // 1. AUTO-REGLAJ EXPUNERE ȘI CONTRAST (GAMMA) DIRECT PE METALUL MONEDEI [1]
-            autoReglajContrastLuminaViewfinder(imgData.data, capW, capH, capW/2, capH/2, Math.min(capW, capH)/2.5);
-            capCtx.putImageData(imgData, 0, 0);
-
-            // 2. DETECȚIE AUTOMATĂ A MARGINILOR PRIN MAGIC WAND PE IMAGINEA CORECTATĂ LUMINOZITATE
-            // Aceasta extrage forma eliptică reală creată de unghiul de 45° al camerei [3]
-            const rezu = detecteazaMonedaMagicWand(capturedCanvas, true);
-            const puncteSelectateMobile = rezu.puncte;
-            const mascaSursaMobile = rezu.mask;
-            const mascaSursaWMobile = rezu.maskW;
-            const mascaSursaHMobile = rezu.maskH;
-
-            opresteFluxCameraMobile();
-
-            const srcW = capW;
-            const srcH = capH;
-            const srcPixels = imgData.data;
-            
-            // Configurare destinație (rezoluția maximă a monedei de referință)
-            const latimeDest = imgCoalaGoalaMobile.naturalWidth || imgCoalaGoalaMobile.width || 3024;
-            const inaltimeDest = imgCoalaGoalaMobile.naturalHeight || imgCoalaGoalaMobile.height || 4032;
-            
-            const outputCanvas = document.createElement('canvas');
-            outputCanvas.width = latimeDest;
-            outputCanvas.height = inaltimeDest;
-            const outCtx = outputCanvas.getContext('2d');
-            
-            outCtx.drawImage(imgCoalaGoalaMobile, 0, 0);
-            
-            const dstImgData = outCtx.getImageData(0, 0, latimeDest, inaltimeDest);
-            const dstPixels = dstImgData.data;
-            
-            const srcPoints = puncteSelectateMobile.map(p => [p.x, p.y]);
-            const dstPoints = puncteCoalaMobile.map(p => [p.x, p.y]);
-            
-            // Homografia face automat translația, scalarea și îndreptarea imaginii din unghi [1]
             const H = getHomographyMatrix(dstPoints, srcPoints);
+
             const h00 = H[0], h01 = H[1], h02 = H[2];
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
-            
-            const xs = puncteCoalaMobile.map(p => p.x);
-            const ys = puncteCoalaMobile.map(p => p.y);
-            const uMin = Math.max(0, Math.floor(Math.min(...xs)));
-            const uMax = Math.min(latimeDest - 1, Math.ceil(Math.max(...xs)));
-            const vMin = Math.max(0, Math.floor(Math.min(...ys)));
-            const vMax = Math.min(inaltimeDest - 1, Math.ceil(Math.max(...ys)));
 
-            // LOGICĂ DE TRANZIȚIE OPTIMIZATĂ PENTRU INTENSITATE MAXIMĂ A DESENULUI (MOBIL) [1, 2]
-            const pragSensibilitateMobile = 110; 
-            const tranzitieMobile = 25; 
-            const pragMaximMobile = Math.min(255, pragSensibilitateMobile + tranzitieMobile);
+            const pragDiferentaRosu = parseInt(sliderSensibilitate.value);
+            const zonaTranzitie = 15; 
 
-            for (let v = vMin; v <= vMax; v++) {
-                for (let u = uMin; u <= uMax; u++) {
-                    const destIdx = (v * latimeDest + u) * 4;
-                    const valMascaDest = getMaskValue(u, v, mascaDestMobile, mascaDestWMobile, mascaDestHMobile, latimeDest, inaltimeDest);
+            for (let v = 0; v < inaltime; v++) {
+                for (let u = 0; u < latime; u++) {
+                    const destIdx = (v * latime + u) * 4;
 
-                    if (valMascaDest > 0.0) {
+                    if (isPointInQuad(u, v, dstPoints)) {
                         const denom = h20 * u + h21 * v + 1.0;
-                        const sx = (h00 * u + h01 * v + h02) / denom;
-                        const sy = (h10 * u + h11 * v + h12) / denom;
+                        const x = (h00 * u + h01 * v + h02) / denom;
+                        const y = (h10 * u + h11 * v + h12) / denom;
 
-                        const x0 = Math.floor(sx);
-                        const y0 = Math.floor(sy);
+                        const x0 = Math.floor(x);
+                        const y0 = Math.floor(y);
 
                         if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                            const valMascaSursa = getMaskValue(sx, sy, mascaSursaMobile, mascaSursaWMobile, mascaSursaHMobile, srcW, srcH);
+                            if (isPointInQuad(x, y, srcPoints)) {
+                                const idx = (y0 * srcW + x0) * 4;
+                                const r = srcPixels[idx];
+                                const g = srcPixels[idx + 1];
+                                const b = srcPixels[idx + 2];
 
-                            if (valMascaSursa > 0.0) {
-                                const dx_s = sx - x0;
-                                const dy_s = sy - y0;
-
-                                const idx00 = (y0 * srcW + x0) * 4;
-                                const idx10 = idx00 + 4;
-                                const idx01 = idx00 + srcW * 4;
-                                const idx11 = idx01 + 4;
-
-                                let r = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00]     + dx_s * (1 - dy_s) * srcPixels[idx10]     + (1 - dx_s) * dy_s * srcPixels[idx01]     + dx_s * dy_s * srcPixels[idx11];
-                                let g = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 1] + dx_s * (1 - dy_s) * srcPixels[idx10 + 1] + (1 - dx_s) * dy_s * srcPixels[idx01 + 1] + dx_s * dy_s * srcPixels[idx11 + 1];
-                                let b = (1 - dx_s) * (1 - dy_s) * srcPixels[idx00 + 2] + dx_s * (1 - dy_s) * srcPixels[idx10 + 2] + (1 - dx_s) * dy_s * srcPixels[idx01 + 2] + dx_s * dy_s * srcPixels[idx11 + 2];
-
-                                let rednessValue = calculeazaRednessHSV(r, g, b);
+                                const diferentaRosu = Math.min(r - g, r - b);
 
                                 let alpha = 0;
-                                if (rednessValue >= pragMaximMobile) {
-                                    alpha = 1.0; // Complet solid
-                                } else if (rednessValue > pragSensibilitateMobile) {
-                                    alpha = (rednessValue - pragSensibilitateMobile) / (pragMaximMobile - pragSensibilitateMobile); // Margini imbinate discret
+                                if (r > 60 && diferentaRosu >= pragDiferentaRosu) {
+                                    alpha = 255;
+                                } else if (r > 60 && diferentaRosu >= pragDiferentaRosu - zonaTranzitie) {
+                                    const ratiune = (diferentaRosu - (pragDiferentaRosu - zonaTranzitie)) / zonaTranzitie;
+                                    alpha = Math.round(255 * ratiune);
                                 }
 
-                                const alphaFinal = alpha * valMascaSursa * valMascaDest;
-
-                                if (alphaFinal > 0.0) {
-                                    const r_bg = dstPixels[destIdx];
-                                    const g_bg = dstPixels[destIdx + 1];
-                                    const b_bg = dstPixels[destIdx + 2];
-
-                                    const r_blend = (r * r_bg) / 255;
-                                    const g_blend = (g * g_bg) / 255;
-                                    const b_blend = (b * b_bg) / 255;
-
-                                    dstPixels[destIdx]     = r_bg + (r_blend - r_bg) * alphaFinal;
-                                    dstPixels[destIdx + 1] = g_bg + (g_blend - g_bg) * alphaFinal;
-                                    dstPixels[destIdx + 2] = b_bg + (b_blend - b_bg) * alphaFinal;
+                                if (alpha > 0) {
+                                    outPixels[destIdx]     = r;
+                                    outPixels[destIdx + 1] = g;
+                                    outPixels[destIdx + 2] = b;
+                                    outPixels[destIdx + 3] = alpha;
+                                } else {
+                                    outPixels[destIdx + 3] = 0;
                                 }
                             }
                         }
                     }
                 }
             }
-            
-            outCtx.putImageData(dstImgData, 0, 0);
-            
-            imgRezultatFinalMobile.src = outputCanvas.toDataURL('image/png');
-            resultOverlayMobile.style.display = 'flex';
-        } catch (err) {
-            console.error("Eroare procesare:", err);
-            currentState = STATE_SCANNING;
-            viewfinderMobile.className = 'viewfinder-circle-mobile';
-            statusTextMobile.textContent = "A apărut o eroare la calibrare. Reîncercați...";
-            statusTextMobile.style.color = "#ff073a";
-            pornesteFluxCameraMobile();
-        }
+
+            tempCtx.putImageData(imgDataDesen, 0, 0);
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(tempCanvas, 0, 0);
+
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
+            butonTransfer.disabled = false;
+        }, 50);
     }
 
-    // --- ASISTENTUL DE ÎNCĂRCARE AUTOMATĂ ---
-    window.addEventListener('load', () => {
-        const isMobile = window.innerWidth <= 768;
-        if (!isMobile) return; 
+    butonTransfer.addEventListener('click', executaTransfer);
 
-        const imgM1 = new Image();
-        const imgM2 = new Image();
-        let m1Loaded = false;
-        let m2Loaded = false;
-        
-        function pornesteProcesareaAutomata() {
-            if (!m1Loaded || !m2Loaded) return;
-            setTimeout(() => {
-                try {
-                    const rezSursa = detecteazaMonedaMagicWand(imgM1, true);
-                    puncteSelectate = rezSursa.puncte;
-                    mascaSursa = rezSursa.mask;
-                    mascaSursaW = rezSursa.maskW;
-                    mascaSursaH = rezSursa.maskH;
-                    
-                    const rezDest = detecteazaMonedaMagicWand(imgM2, false);
-                    puncteCoalaMobile = rezDest.puncte;
-                    mascaDestMobile = rezDest.mask;
-                    mascaDestWMobile = rezDest.maskW;
-                    mascaDestHMobile = rezDest.maskH;
-                    
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = imgM1.naturalWidth || imgM1.width;
-                    tempCanvas.height = imgM1.naturalHeight || imgM1.height;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(imgM1, 0, 0);
-                    
-                    const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                    autoReglajContrastLuminaViewfinder(imgData.data, tempCanvas.width, tempCanvas.height, tempCanvas.width/2, tempCanvas.height/2, Math.min(tempCanvas.width, tempCanvas.height)/2);
-                    
-                    cachedSrcPixels = imgData.data;
-                    cachedSrcW = tempCanvas.width;
-                    cachedSrcH = tempCanvas.height;
-                    
-                    imgDesen = imgM1;
-                    imgCoalaGoalaMobile = imgM2;
-                } catch (e) {
-                    console.error("Eroare inițializare automată:", e);
-                }
-            }, 50);
+    // --- LOGICA DE ÎNCĂRCARE AUTOMATĂ LA PORNIRE ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // 1. Încărcare automată Cartea 1
+        const implicitSursa = new Image();
+        implicitSursa.onload = () => handleIncarcareImagineSursa(implicitSursa);
+        implicitSursa.onerror = () => {
+            boxDesen.innerHTML = '<span style="color: #e53e3e; font-size: 14px;">Nu s-a putut încărca "as-01.png" automat. Vă rugăm să folosiți încărcarea manuală.</span>';
+        };
+        implicitSursa.src = 'as-01.png';
+
+        // 2. Încărcare automată Cartea 2 (cu fallback pentru extensie)
+        const implicitDest = new Image();
+        implicitDest.onload = () => handleIncarcareImagineDestinatie(implicitDest);
+        implicitDest.onerror = () => {
+            // Încercare de rezolvare în caz de eroare / fallback .ong
+            const fallbackDest = new Image();
+            fallbackDest.onload = () => handleIncarcareImagineDestinatie(fallbackDest);
+            fallbackDest.onerror = () => {
+                boxCoala.innerHTML = '<span style="color: #e53e3e; font-size: 14px;">Nu s-a putut încărca "as-02.png" automat. Vă rugăm să folosiți încărcarea manuală.</span>';
+            };
+            fallbackDest.src = 'as-02.ong';
+        };
+        implicitDest.src = 'as-02.png';
+    });
+
+    // --- LOGICA DE CORESPONDENȚĂ ZOOM ȘI FULLSCREEN PENTRU INTERFAȚĂ ---
+    canvas.addEventListener('click', () => {
+        imgFullscreen.src = canvas.toDataURL('image/png');
+        imgFullscreen.className = 'img-fit'; 
+        isZoomed = false;
+        fullscreenOverlay.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    });
+
+    imgFullscreen.addEventListener('click', (e) => {
+        e.stopPropagation(); 
+        if (isZoomed) {
+            imgFullscreen.className = 'img-fit';
+            isZoomed = false;
+        } else {
+            imgFullscreen.className = 'img-zoom100';
+            isZoomed = true;
         }
-        
-        imgM1.onload = () => { m1Loaded = true; pornesteProcesareaAutomata(); };
-        imgM1.src = "moneda-perspectiva.jpg";
-        
-        imgM2.onload = () => { m2Loaded = true; pornesteProcesareaAutomata(); };
-        imgM2.src = "moneda-front.jpg";
+    });
+
+    fullscreenOverlay.addEventListener('click', () => {
+        fullscreenOverlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        imgFullscreen.src = '';
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && fullscreenOverlay.style.display === 'block') {
+            fullscreenOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            imgFullscreen.src = '';
+        }
     });
 </script>
 </body>

@@ -27,7 +27,7 @@
         .panel h3 { margin-top: 0; color: #4a5568; font-size: 16px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; width: 100%; }
         
         .preview-box { width: 100%; height: 250px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0; border-radius: 6px; background: #f7fafc; overflow: hidden; margin-top: 10px; position: relative; }
-        .preview-box img, .preview-box video { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
         
         #canvasRezultat { max-width: 100%; max-height: 100%; object-fit: contain; display: none; cursor: zoom-in; transition: transform 0.2s; }
         #canvasRezultat:hover { transform: scale(1.02); }
@@ -72,6 +72,74 @@
             .desktop-only {
                 display: none !important;
             }
+        }
+
+        /* Stiluri pentru interfața camerei pe tot display-ul */
+        .camera-overlay-container {
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #000; 
+            z-index: 99999;
+            overflow: hidden;
+        }
+        .camera-video {
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            position: absolute; 
+            top: 0; 
+            left: 0;
+        }
+        .camera-canvas {
+            width: 100%; 
+            height: 100%; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            pointer-events: none; 
+            z-index: 100000;
+        }
+        .btn-snap-trigger {
+            position: absolute; 
+            bottom: 40px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 100001; 
+            background: #ffffff; 
+            color: #000000; 
+            border: 5px solid rgba(0,0,0,0.2); 
+            border-radius: 50%; 
+            width: 80px; 
+            height: 80px; 
+            font-weight: bold; 
+            font-size: 15px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+        .btn-snap-trigger:active {
+            transform: translateX(-50%) scale(0.9);
+        }
+        .btn-cancel-camera {
+            position: absolute; 
+            top: 25px; 
+            right: 25px; 
+            z-index: 100001; 
+            background: rgba(0,0,0,0.6); 
+            color: #fff; 
+            border: 1px solid rgba(255,255,255,0.3); 
+            border-radius: 6px; 
+            padding: 8px 16px; 
+            font-weight: bold; 
+            font-size: 14px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -136,6 +204,15 @@
     </div>
 </div>
 
+<!-- CONTAINER FULLSCREEN PENTRU INTERFAȚA CAMEREI -->
+<div id="cameraInterface" class="camera-overlay-container">
+    <video id="videoPreview" class="camera-video" autoplay playsinline></video>
+    <canvas id="cameraOverlay" class="camera-canvas"></canvas>
+    
+    <button id="btnManualSnap" class="btn-snap-trigger">SNAP</button>
+    <button id="btnCancelCamera" class="btn-cancel-camera">Anulează</button>
+</div>
+
 <div id="fullscreenOverlay" class="fullscreen-overlay">
     <span class="close-tip">Click pe imagine pentru Zoom 100% | Click pe fundal sau ESC pentru închidere</span>
     <img id="imgFullscreen" src="" alt="Analiză imagine la rezoluție maximă">
@@ -162,6 +239,13 @@
     const fullscreenOverlay = document.getElementById('fullscreenOverlay');
     const imgFullscreen = document.getElementById('imgFullscreen');
 
+    // Elemente interfață cameră
+    const cameraInterface = document.getElementById('cameraInterface');
+    const videoPreview = document.getElementById('videoPreview');
+    const cameraOverlay = document.getElementById('cameraOverlay');
+    const btnManualSnap = document.getElementById('btnManualSnap');
+    const btnCancelCamera = document.getElementById('btnCancelCamera');
+
     let imgDesen = null;
     let imgCoalaGoala = null;
     let urlDesen = null;
@@ -175,14 +259,14 @@
     let isZoomed = false;
     let autoTransferRulat = false;
 
-    // Control Cameră video
+    // Stări Cameră
     let cameraActive = false;
     let videoStream = null;
-    let detectieStabilaCount = 0;
+    let trackerColturiSursa = [];
 
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
-    // --- ALGORITM DE DETECȚIE BAZAT PE FLOOD-FILL (Exterior-Interior) ---
+    // --- ALGORITM DE DETECȚIE ROBUST CU CONNECTED COMPONENT LABELING (Evită desenele interne și umbrele) ---
     function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -220,7 +304,7 @@
             if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        // Coeficient de 0.60 adaptat special pentru a ignora accentele gri de reflexie speculară (luciri) de pe fundalul negru
+        // Coeficient de 0.60 adaptat pentru a ignora reflexiile specular-gri de fundal
         const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.60;
         
         const visited = new Uint8Array(w * h);
@@ -262,10 +346,59 @@
             }
         }
         
+        // --- ETAPĂ DE CONNECTED COMPONENT LABELING (CCL) ---
+        // Identificăm cel mai mare obiect conex din regiunile nevizitate (visited === 0)
+        // Corpul cărții va fi întotdeauna cea mai mare componentă coneză albă, izolând detaliile negre din interior
+        const label = new Int32Array(w * h);
+        let maxComponentSize = 0;
+        let bestLabel = 0;
+        let currentLabel = 1;
+        
+        for (let i = 0; i < w * h; i++) {
+            if (visited[i] === 1) {
+                label[i] = -1; 
+            }
+        }
+        
+        const cQueue = new Int32Array(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const idx = y * w + x;
+                if (label[idx] === 0) {
+                    let size = 0;
+                    let qHead = 0;
+                    let qTail = 0;
+                    
+                    label[idx] = currentLabel;
+                    cQueue[qTail++] = idx;
+                    
+                    while (qHead < qTail) {
+                        const curr = cQueue[qHead++];
+                        size++;
+                        
+                        const cx = curr % w;
+                        const cy = Math.floor(curr / w);
+                        
+                        if (cx > 0 && label[curr - 1] === 0) { label[curr - 1] = currentLabel; cQueue[qTail++] = curr - 1; }
+                        if (cx < w - 1 && label[curr + 1] === 0) { label[curr + 1] = currentLabel; cQueue[qTail++] = curr + 1; }
+                        if (cy > 0 && label[curr - w] === 0) { label[curr - w] = currentLabel; cQueue[qTail++] = curr - w; }
+                        if (cy < h - 1 && label[curr + w] === 0) { label[curr + w] = currentLabel; cQueue[qTail++] = curr + w; }
+                    }
+                    
+                    if (size > maxComponentSize) {
+                        maxComponentSize = size;
+                        bestLabel = currentLabel;
+                    }
+                    currentLabel++;
+                }
+            }
+        }
+        
         const puncteCard = [];
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
-                if (visited[y * w + x] === 0) {
+                const idx = y * w + x;
+                if (label[idx] === bestLabel) {
                     puncteCard.push({ x, y });
                 }
             }
@@ -390,43 +523,43 @@
         img.src = urlCoalaGoala;
     });
 
-    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-SNAP PE ROZ) ---
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE CU REZOLUȚIE COMPLETĂ (FULLSCREEN) ---
     btnStartCamera.addEventListener('click', async () => {
         opresteCameraDacaEsteActiva();
         
-        boxDesen.innerHTML = '<video id="videoPreview" autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>';
-        const video = document.getElementById('videoPreview');
+        cameraInterface.style.display = 'block';
         instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Se inițializează...</span>";
 
         try {
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: "environment", // Utilizează camera din spate
+                    facingMode: "environment", // camera din spate
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 },
                 audio: false
             });
 
-            video.srcObject = videoStream;
+            videoPreview.srcObject = videoStream;
             
+            // Forțăm focalizarea continuă dacă browserul suportă
             const track = videoStream.getVideoTracks()[0];
             if (track.getCapabilities) {
                 const capabilitati = track.getCapabilities();
                 if (capabilitati.focusMode && capabilitati.focusMode.includes('continuous')) {
                     track.applyConstraints({
                         advanced: [{ focusMode: 'continuous' }]
-                    }).catch(err => console.log("Focus continuous nesuportat:", err));
+                    }).catch(err => console.log("Focus continuu nesuportat hardware:", err));
                 }
             }
 
             cameraActive = true;
-            detectieStabilaCount = 0;
-            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Scanare activă...</span>";
+            resizeOverlay();
             
-            requestAnimationFrame(() => analizeazaCadruVideo(video));
+            requestAnimationFrame(analizeazaCadruVideoLive);
 
         } catch (err) {
+            cameraInterface.style.display = 'none';
             instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS.</span>";
             console.error(err);
         }
@@ -440,110 +573,104 @@
         }
     }
 
-    // Bucla ultra-rapidă de analiză în timp real pentru identificarea culorii roz
-    function analizeazaCadruVideo(video) {
+    function resizeOverlay() {
+        cameraOverlay.width = cameraOverlay.clientWidth;
+        cameraOverlay.height = cameraOverlay.clientHeight;
+    }
+
+    // Bucla de analiză și urmărire în timp real pe ecran
+    function analizeazaCadruVideoLive() {
         if (!cameraActive) return;
 
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        if (videoPreview.readyState === videoPreview.HAVE_ENOUGH_DATA) {
+            if (cameraOverlay.width !== cameraOverlay.clientWidth || cameraOverlay.height !== cameraOverlay.clientHeight) {
+                resizeOverlay();
+            }
+
+            const vw = videoPreview.videoWidth;
+            const vh = videoPreview.videoHeight;
+
             const canvasAnaliza = document.createElement('canvas');
-            canvasAnaliza.width = video.videoWidth;
-            canvasAnaliza.height = video.videoHeight;
+            canvasAnaliza.width = vw;
+            canvasAnaliza.height = vh;
             const ctxAnaliza = canvasAnaliza.getContext('2d');
-            ctxAnaliza.drawImage(video, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
+            ctxAnaliza.drawImage(videoPreview, 0, 0, vw, vh);
 
-            // Verificăm exclusiv prezența culorii roz pe cadru (fără a îngreuna procesarea cu detecția geometrică pe fluxul live)
-            const rozIdentificat = detecteazaPrezentaRoz(canvasAnaliza);
+            // Detecție adaptivă colțuri în timp real
+            const rezultat = detecteazaColturiCarte(canvasAnaliza);
+            trackerColturiSursa = rezultat.puncte;
 
-            if (rozIdentificat) {
-                detectieStabilaCount++;
-                // La 2 cadre consecutive stabile cu roz, se realizează snap-ul instant
-                if (detectieStabilaCount >= 2) {
-                    // Detecția geometrică a colțurilor se rulează doar pe cadrul selectat pentru snap (fără lag în video)
-                    const rezultatColturi = detecteazaColturiCarte(canvasAnaliza);
-                    realizeazaSnapCameră(canvasAnaliza, rezultatColturi.puncte);
-                    return;
-                }
-            } else {
-                detectieStabilaCount = 0;
-            }
+            const oCtx = cameraOverlay.getContext('2d');
+            oCtx.clearRect(0, 0, cameraOverlay.width, cameraOverlay.height);
+
+            // Maparea coordonatelor native video pe layout-ul CSS (object-fit: cover)
+            const canvasW = cameraOverlay.width;
+            const canvasH = cameraOverlay.height;
+            const scaleX = canvasW / vw;
+            const scaleY = canvasH / vh;
+            const scale = Math.max(scaleX, scaleY); 
+
+            const offsetX = (canvasW - vw * scale) / 2;
+            const offsetY = (canvasH - vh * scale) / 2;
+
+            const mappedPts = trackerColturiSursa.map(pt => ({
+                x: pt.x * scale + offsetX,
+                y: pt.y * scale + offsetY
+            }));
+
+            // Desenăm chenarul verde (activ/valid) sau roșu (instabil)
+            oCtx.strokeStyle = rezultat.succes ? '#28a745' : '#ff073a';
+            oCtx.lineWidth = 4;
+            oCtx.beginPath();
+            oCtx.moveTo(mappedPts[0].x, mappedPts[0].y);
+            oCtx.lineTo(mappedPts[1].x, mappedPts[1].y);
+            oCtx.lineTo(mappedPts[2].x, mappedPts[2].y);
+            oCtx.lineTo(mappedPts[3].x, mappedPts[3].y);
+            oCtx.closePath();
+            oCtx.stroke();
+
+            // Linii de asistență discrete
+            oCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+            oCtx.lineWidth = 1;
+            oCtx.setLineDash([4, 4]);
+            oCtx.beginPath();
+            oCtx.moveTo(mappedPts[0].x, mappedPts[0].y);
+            oCtx.lineTo(mappedPts[2].x, mappedPts[2].y);
+            oCtx.moveTo(mappedPts[1].x, mappedPts[1].y);
+            oCtx.lineTo(mappedPts[3].x, mappedPts[3].y);
+            oCtx.stroke();
+            oCtx.setLineDash([]);
         }
 
-        requestAnimationFrame(() => analizeazaCadruVideo(video));
+        requestAnimationFrame(analizeazaCadruVideoLive);
     }
 
-    // Identificare ultra-rapidă pe rezoluție minimă pentru detecția roz-ului în video live
-    function detecteazaPrezentaRoz(canvasSursa) {
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        const w = 80;
-        const h = 60;
-        tempCanvas.width = w;
-        tempCanvas.height = h;
-        tempCtx.drawImage(canvasSursa, 0, 0, w, h);
-        
-        const imgData = tempCtx.getImageData(0, 0, w, h);
-        const pixels = imgData.data;
-        
-        const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
-        let count = 0;
-        
-        for (let i = 0; i < w * h; i++) {
-            const idx = i * 4;
-            const r = pixels[idx];
-            const g = pixels[idx + 1];
-            const b = pixels[idx + 2];
-            
-            const diferentaRoz = (r - g) + (b - g);
-            if (r > 80 && b > 55 && diferentaRoz >= pragDiferentaRoz) {
-                count++;
-            }
+    // Declansare manuala SNAP de catre utilizator
+    btnManualSnap.addEventListener('click', () => {
+        if (!videoStream || !cameraActive) return;
+
+        const vw = videoPreview.videoWidth;
+        const vh = videoPreview.videoHeight;
+
+        const snapCanvas = document.createElement('canvas');
+        snapCanvas.width = vw;
+        snapCanvas.height = vh;
+        const snapCtx = snapCanvas.getContext('2d');
+        snapCtx.drawImage(videoPreview, 0, 0, vw, vh);
+
+        let colțuriSalvate = trackerColturiSursa;
+        if (!colțuriSalvate || colțuriSalvate.length !== 4) {
+            const rezFinal = detecteazaColturiCarte(snapCanvas);
+            colțuriSalvate = rezFinal.puncte;
         }
-        return count >= 15; // Cel puțin 15 pixeli grupați pe rezoluția mică confirmă prezența roz-ului
-    }
 
-    function numaraPixeliRozInPatrulater(canvasSursa, colturiSursa) {
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        const scale = 100 / Math.max(canvasSursa.width, canvasSursa.height);
-        const w = Math.round(canvasSursa.width * scale);
-        const h = Math.round(canvasSursa.height * scale);
-        
-        tempCanvas.width = w;
-        tempCanvas.height = h;
-        tempCtx.drawImage(canvasSursa, 0, 0, w, h);
-        
-        const imgData = tempCtx.getImageData(0, 0, w, h);
-        const pixels = imgData.data;
-        
-        const colturiMici = colturiSursa.map(p => [p.x * scale, p.y * scale]);
-        const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
-        let count = 0;
-        
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                if (isPointInQuad(x, y, colturiMici)) {
-                    const idx = (y * w + x) * 4;
-                    const r = pixels[idx];
-                    const g = pixels[idx + 1];
-                    const b = pixels[idx + 2];
-                    
-                    const diferentaRoz = (r - g) + (b - g);
-                    if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
-                        count++;
-                    }
-                }
-            }
-        }
-        return count;
-    }
-
-    function realizeazaSnapCameră(canvasSursa, colturiSursa) {
         opresteCameraDacaEsteActiva();
-        
+        cameraInterface.style.display = 'none';
+
         const imagineSnap = new Image();
         imagineSnap.onload = () => {
             imgDesen = imagineSnap;
-            puncteSelectate = colturiSursa; 
+            puncteSelectate = colțuriSalvate; 
             
             boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
             canvasSelectie = document.getElementById('canvasSelectie');
@@ -552,11 +679,17 @@
             randeazaSelectie();
             actualizeazaInfoPuncte();
             
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat!</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap manual salvat!</span>";
             executaTransfer();
         };
-        imagineSnap.src = canvasSursa.toDataURL('image/png');
-    }
+        imagineSnap.src = snapCanvas.toDataURL('image/png');
+    });
+
+    btnCancelCamera.addEventListener('click', () => {
+        opresteCameraDacaEsteActiva();
+        cameraInterface.style.display = 'none';
+        instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
+    });
 
     function randeazaSelectie() {
         if (!imgDesen || !canvasSelectie) return;
@@ -600,7 +733,6 @@
         randeazaGeometriePatrulater(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
     }
 
-    // --- DESENARE GEOMETRIE FĂRĂ PUNCTE INTERACTIVE (100% AUTOMAT) ---
     function randeazaGeometriePatrulater(ctxSel, puncte, img, dispW, dispH, culoare) {
         if (puncte.length !== 4) return;
 

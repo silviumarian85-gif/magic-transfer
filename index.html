@@ -68,7 +68,6 @@
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
 
-        /* Stiluri pentru ascunderea butoanelor de încărcare manuală pe mobil */
         @media (max-width: 768px) {
             .desktop-only {
                 display: none !important;
@@ -221,7 +220,8 @@
             if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.25;
+        // Coeficient de 0.60 adaptat special pentru a ignora accentele gri de reflexie speculară (luciri) de pe fundalul negru
+        const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.60;
         
         const visited = new Uint8Array(w * h);
         const queue = [];
@@ -390,13 +390,13 @@
         img.src = urlCoalaGoala;
     });
 
-    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-SNAP) ---
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-SNAP PE ROZ) ---
     btnStartCamera.addEventListener('click', async () => {
         opresteCameraDacaEsteActiva();
         
         boxDesen.innerHTML = '<video id="videoPreview" autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>';
         const video = document.getElementById('videoPreview');
-        instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Camera se inițializează... Oferiți permisiunea.</span>";
+        instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Se inițializează...</span>";
 
         try {
             videoStream = await navigator.mediaDevices.getUserMedia({
@@ -422,12 +422,12 @@
 
             cameraActive = true;
             detectieStabilaCount = 0;
-            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Îndreptați camera spre carte. Încadrarea și snap-ul sunt complet automate.</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Scanare activă...</span>";
             
             requestAnimationFrame(() => analizeazaCadruVideo(video));
 
         } catch (err) {
-            instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS și ați oferit permisiunile.</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS.</span>";
             console.error(err);
         }
     });
@@ -440,7 +440,7 @@
         }
     }
 
-    // Bucla de analiză pe fluxul video în timp real
+    // Bucla ultra-rapidă de analiză în timp real pentru identificarea culorii roz
     function analizeazaCadruVideo(video) {
         if (!cameraActive) return;
 
@@ -451,21 +451,17 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(video, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            const rezultat = detecteazaColturiCarte(canvasAnaliza);
+            // Verificăm exclusiv prezența culorii roz pe cadru (fără a îngreuna procesarea cu detecția geometrică pe fluxul live)
+            const rozIdentificat = detecteazaPrezentaRoz(canvasAnaliza);
 
-            if (rezultat.succes) {
-                // Numărăm pixelii roz din interiorul conturului
-                const pixeliRoz = numaraPixeliRozInPatrulater(canvasAnaliza, rezultat.puncte);
-
-                // Dacă desenul roz este identificat în mod clar (peste 150 de pixeli roz)
-                if (pixeliRoz > 150) {
-                    detectieStabilaCount++;
-                    if (detectieStabilaCount >= 3) {
-                        realizeazaSnapCameră(canvasAnaliza, rezultat.puncte);
-                        return;
-                    }
-                } else {
-                    detectieStabilaCount = 0;
+            if (rozIdentificat) {
+                detectieStabilaCount++;
+                // La 2 cadre consecutive stabile cu roz, se realizează snap-ul instant
+                if (detectieStabilaCount >= 2) {
+                    // Detecția geometrică a colțurilor se rulează doar pe cadrul selectat pentru snap (fără lag în video)
+                    const rezultatColturi = detecteazaColturiCarte(canvasAnaliza);
+                    realizeazaSnapCameră(canvasAnaliza, rezultatColturi.puncte);
+                    return;
                 }
             } else {
                 detectieStabilaCount = 0;
@@ -475,7 +471,36 @@
         requestAnimationFrame(() => analizeazaCadruVideo(video));
     }
 
-    // --- FILTRUL DE CULOARE PENTRU ROZ ---
+    // Identificare ultra-rapidă pe rezoluție minimă pentru detecția roz-ului în video live
+    function detecteazaPrezentaRoz(canvasSursa) {
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const w = 80;
+        const h = 60;
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        tempCtx.drawImage(canvasSursa, 0, 0, w, h);
+        
+        const imgData = tempCtx.getImageData(0, 0, w, h);
+        const pixels = imgData.data;
+        
+        const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
+        let count = 0;
+        
+        for (let i = 0; i < w * h; i++) {
+            const idx = i * 4;
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+            
+            const diferentaRoz = (r - g) + (b - g);
+            if (r > 80 && b > 55 && diferentaRoz >= pragDiferentaRoz) {
+                count++;
+            }
+        }
+        return count >= 15; // Cel puțin 15 pixeli grupați pe rezoluția mică confirmă prezența roz-ului
+    }
+
     function numaraPixeliRozInPatrulater(canvasSursa, colturiSursa) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -502,7 +527,6 @@
                     const g = pixels[idx + 1];
                     const b = pixels[idx + 2];
                     
-                    // Pentru roz, atât Roșu cât și Albastru domină clar Verdele
                     const diferentaRoz = (r - g) + (b - g);
                     if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
                         count++;
@@ -528,7 +552,7 @@
             randeazaSelectie();
             actualizeazaInfoPuncte();
             
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap automat realizat! Desenul roz a fost detectat.</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat!</span>";
             executaTransfer();
         };
         imagineSnap.src = canvasSursa.toDataURL('image/png');
@@ -585,7 +609,6 @@
             y: (p.y / img.naturalHeight) * dispH
         }));
         
-        // Desenare exclusivă a conturului (fără cercuri sau numere)
         ctxSel.strokeStyle = culoare;
         ctxSel.lineWidth = 3;
         ctxSel.beginPath();
@@ -596,7 +619,6 @@
         ctxSel.closePath();
         ctxSel.stroke();
         
-        // Diagonale discrete
         ctxSel.strokeStyle = culoare + '33';
         ctxSel.lineWidth = 1;
         ctxSel.setLineDash([4, 4]);
@@ -788,7 +810,6 @@
                                 const g = srcPixels[idx + 1];
                                 const b = srcPixels[idx + 2];
 
-                                // Extragem doar culoarea roz (R și B domină G)
                                 const diferentaRoz = (r - g) + (b - g);
 
                                 let alpha = 0;

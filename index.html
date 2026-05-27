@@ -228,21 +228,24 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 16
+            Versiune 17
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
             <button id="btnStartCamera" class="btn-camera" style="padding: 15px 30px; font-size: 16px;">📷 Activează Cameră Spate</button>
+            
+            <!-- Buton Încărcare Sursă legat direct la inputul incarcaDesen -->
+            <label for="incarcaDesen" class="btn-camera" style="background: #28a745; padding: 15px 30px; font-size: 16px; cursor: pointer; font-weight: 600; display: inline-block;">📁 Încarcă Imagine</label>
+            
             <button onclick="window.location.reload();" class="btn-upload" style="background: #dc3545; padding: 15px 30px; font-size: 16px; font-weight: 600;">🔄 Reîncarcă Pagina</button>
         </div>
     </div>
 
-    <!-- Secțiunea secundară de încărcare fișiere (Desktop only) -->
+    <!-- Secțiunea secundară de încărcare referință (Desktop only) -->
     <div class="upload-section" style="margin-top: 15px;">
-        <div class="desktop-only">
-            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Sursă</label>
-            <input type="file" id="incarcaDesen" accept="image/*">
-        </div>
+        <!-- Inputul original ascuns pentru imaginea sursă, dar accesat de labelul din start -->
+        <input type="file" id="incarcaDesen" accept="image/*">
+        
         <div class="desktop-only">
             <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Referință (Cartea 2)</label>
             <input type="file" id="incarcaCoalaGoala" accept="image/*">
@@ -308,16 +311,20 @@
 <div class="mobile-flow">
     <!-- Pasul 1: Ecranul de start mobil centrat -->
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
-        <!-- Badge Iteratie Mobil: Afișare mare și clară -->
+        <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 16
+            Versiune 17
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
-        <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
+        <button id="mBtnStart" class="btn-mobile-start" style="margin-bottom: 15px;">🎥 Pornește Camera</button>
         
-        <!-- Buton de Refresh sub butonul de start -->
-        <button onclick="window.location.reload();" class="btn-mobile-restart" style="margin-top: 20px; background: #dc3545; padding: 14px 35px; font-size: 16px; border-radius: 8px;">🔄 Reîncarcă Pagina</button>
+        <!-- Buton Încărcare Sursă Mobil -->
+        <label for="mIncarcaDesen" class="btn-mobile-start" style="background: #28a745; margin-bottom: 15px; display: inline-block; text-align: center; line-height: normal; cursor: pointer;">📁 Încarcă Imagine</label>
+        <input type="file" id="mIncarcaDesen" accept="image/*" style="display: none;">
+
+        <!-- Buton de Refresh sub butoanele de start -->
+        <button onclick="window.location.reload();" class="btn-mobile-restart" style="margin-top: 5px; background: #dc3545; padding: 14px 35px; font-size: 16px; border-radius: 8px; width: 80%; max-width: 280px;">🔄 Reîncarcă Pagina</button>
     </div>
     
     <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
@@ -414,6 +421,9 @@
     const mBtnProcess = document.getElementById('mBtnProcess');
     const mResultContainer = document.getElementById('mResultContainer');
     const mBtnRestart = document.getElementById('mBtnRestart');
+    
+    // Input Încărcare Mobil direct din start
+    const mIncarcaDesen = document.getElementById('mIncarcaDesen');
 
     let imgDesen = null;
     let imgCoalaGoala = null;
@@ -759,6 +769,53 @@
         img.onload = () => handleIncarcareImagineDestinatie(img);
         urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
         img.src = urlCoalaGoala;
+    });
+
+    // --- EVENIMENT ÎNCĂRCARE DIRECTĂ MOBIL ---
+    mIncarcaDesen.addEventListener('change', (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        if (urlDesen) URL.revokeObjectURL(urlDesen);
+        
+        const img = new Image();
+        img.onload = () => {
+            // Ascundem ecranul de start mobil și pregătim mediul de ajustare pe mobil
+            document.getElementById('mStartScreen').style.display = 'none';
+            mResultContainer.style.display = 'none';
+            mAdjustmentContainer.style.display = 'flex';
+            
+            imgDesen = img;
+            
+            // Rulăm algoritmul de detectat colțuri pe imaginea statică încărcată
+            const rezFinal = detecteazaColturiCarte(img);
+            puncteSelectate = rezFinal.puncte;
+            
+            const mCanvasPreview = document.getElementById('mCanvasPreview');
+            const aspect = img.naturalWidth / img.naturalHeight;
+            
+            const maxDim = 800;
+            if (img.naturalWidth > img.naturalHeight) {
+                mCanvasPreview.width = maxDim;
+                mCanvasPreview.height = Math.round(maxDim / aspect);
+            } else {
+                mCanvasPreview.height = maxDim;
+                mCanvasPreview.width = Math.round(maxDim * aspect);
+            }
+            
+            const mCtxPreview = mCanvasPreview.getContext('2d');
+            mCtxPreview.drawImage(img, 0, 0, mCanvasPreview.width, mCanvasPreview.height);
+            
+            // Desenăm chenarul verde de verificare
+            randeazaGeometriePatrulater(mCtxPreview, puncteSelectate, img, mCanvasPreview.width, mCanvasPreview.height, '#28a745');
+            
+            // Sincronizăm și panoul de PC în spate pentru consistență
+            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+            canvasSelectie = document.getElementById('canvasSelectie');
+            btnResetPuncte.style.display = 'inline-block';
+            randeazaSelectie();
+            actualizeazaInfoPuncte();
+        };
+        urlDesen = URL.createObjectURL(e.target.files[0]);
+        img.src = urlDesen;
     });
 
     // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE ---
@@ -1355,34 +1412,8 @@
                 }
             }
 
-            // --- PASUL DE SMOOTH PIXELS (ANTI-ALIASING) EXCLUSIV PE CANALUL ALPHA ---
-            // Realizăm o estompare fină pe marginile ascuțite, oferind contururi rotunjite organic
-            const tempAlpha = new Uint8Array(targetW * targetH);
-            for (let i = 0; i < targetW * targetH; i++) {
-                tempAlpha[i] = outPixels[i * 4 + 3];
-            }
-
-            // Aplicăm un filtru Gaussian 3x3 pe matricea de transparență (fără a amesteca culorile RGB)
-            for (let v = 1; v < targetH - 1; v++) {
-                for (let u = 1; u < targetW - 1; u++) {
-                    const idx = v * targetW + u;
-                    const destIdx = idx * 4;
-
-                    if (tempAlpha[idx] > 0 || 
-                        tempAlpha[idx - 1] > 0 || tempAlpha[idx + 1] > 0 ||
-                        tempAlpha[idx - targetW] > 0 || tempAlpha[idx + targetW] > 0) {
-
-                        // Kernel Gaussian ponderat [1-2-1 / 2-4-2 / 1-2-1] împărțit la 16
-                        const valAlpha = (
-                            1 * tempAlpha[idx - targetW - 1] + 2 * tempAlpha[idx - targetW] + 1 * tempAlpha[idx - targetW + 1] +
-                            2 * tempAlpha[idx - 1]           + 4 * tempAlpha[idx]           + 2 * tempAlpha[idx + 1] +
-                            1 * tempAlpha[idx + targetW - 1] + 2 * tempAlpha[idx + targetW] + 1 * tempAlpha[idx + targetW + 1]
-                        ) / 16;
-
-                        outPixels[destIdx + 3] = Math.round(valAlpha);
-                    }
-                }
-            }
+            // --- SMOOTH PIXELS ELIMINAT CONFORM SOLICITĂRII ---
+            // Marginile rămân sharp, oferind pixeli direcți din detecție pentru un test acurat.
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 

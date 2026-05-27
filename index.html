@@ -27,7 +27,7 @@
         .panel h3 { margin-top: 0; color: #4a5568; font-size: 16px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; width: 100%; }
         
         .preview-box { width: 100%; height: 250px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0; border-radius: 6px; background: #f7fafc; overflow: hidden; margin-top: 10px; position: relative; }
-        .preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .preview-box img, .preview-box video { max-width: 100%; max-height: 100%; object-fit: contain; }
         
         #canvasRezultat { max-width: 100%; max-height: 100%; object-fit: contain; display: none; cursor: zoom-in; transition: transform 0.2s; }
         #canvasRezultat:hover { transform: scale(1.02); }
@@ -68,13 +68,7 @@
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
 
-        @media (max-width: 768px) {
-            .desktop-only {
-                display: none !important;
-            }
-        }
-
-        /* Stiluri pentru interfața camerei pe tot display-ul */
+        /* Interfața camerei pe tot ecranul */
         .camera-overlay-container {
             display: none; 
             position: fixed; 
@@ -141,10 +135,81 @@
             font-size: 14px;
             cursor: pointer;
         }
+
+        /* Containerul fluxului minimalist pe mobil */
+        .mobile-flow {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                display: none !important;
+            }
+            body {
+                background: #121212;
+                color: #fff;
+                padding: 0;
+                margin: 0;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+            }
+            .mobile-flow {
+                display: flex !important;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                box-sizing: border-box;
+                padding: 20px;
+            }
+            .btn-mobile-start {
+                background: #007bff; 
+                color: white; 
+                border: none; 
+                padding: 20px 45px; 
+                font-size: 18px; 
+                font-weight: bold; 
+                border-radius: 50px; 
+                cursor: pointer; 
+                box-shadow: 0 4px 15px rgba(0,123,255,0.4);
+            }
+            .m-result-container {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+            }
+            .m-canvas {
+                max-width: 90vw;
+                max-height: 70vh;
+                object-fit: contain;
+                border-radius: 12px;
+                box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+            }
+            .btn-mobile-restart {
+                margin-top: 25px;
+                background: #4a5568;
+                color: white;
+                border: none;
+                padding: 12px 30px;
+                font-size: 15px;
+                font-weight: bold;
+                border-radius: 8px;
+                cursor: pointer;
+            }
+        }
     </style>
 </head>
 <body>
 
+<!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
     <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz</h2>
     
@@ -152,11 +217,11 @@
         <div>
             <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
         </div>
-        <div class="desktop-only">
-            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Manual</label>
+        <div>
+            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Sursă</label>
             <input type="file" id="incarcaDesen" accept="image/*">
         </div>
-        <div class="desktop-only">
+        <div>
             <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Referință (Cartea 2)</label>
             <input type="file" id="incarcaCoalaGoala" accept="image/*">
         </div>
@@ -184,12 +249,12 @@
         </div>
 
         <div class="panel">
-            <h3>2. Cartea 2 (Detecție Automată Referință)</h3>
+            <h3>2. Cartea 2 (Format Fix Referință - 489x680px)</h3>
             <div class="preview-box" id="boxCoala">
                 <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
             </div>
             <div class="info-puncte" id="instructiuniPuncteCoala">
-                Imaginea de referință cu cartea de destinație.
+                Referință fixă mapată la rezoluția de 489x680px.
             </div>
             <button id="btnResetPuncteCoala" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
         </div>
@@ -204,7 +269,19 @@
     </div>
 </div>
 
-<!-- CONTAINER FULLSCREEN PENTRU INTERFAȚA CAMEREI -->
+<!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
+<div class="mobile-flow">
+    <!-- Pasul 1: Doar butonul de pornire -->
+    <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
+    
+    <!-- Pasul 3: Doar rezultatul procesat -->
+    <div id="mResultContainer" class="m-result-container">
+        <canvas id="mCanvasRezultat" class="m-canvas"></canvas>
+        <button id="mBtnRestart" class="btn-mobile-restart">🔄 Încearcă din Nou</button>
+    </div>
+</div>
+
+<!-- CAPTURĂ CAMERA DIRECT PE TOT ECRANUL (Folosit pe ambele platforme) -->
 <div id="cameraInterface" class="camera-overlay-container">
     <video id="videoPreview" class="camera-video" autoplay playsinline></video>
     <canvas id="cameraOverlay" class="camera-canvas"></canvas>
@@ -246,6 +323,11 @@
     const btnManualSnap = document.getElementById('btnManualSnap');
     const btnCancelCamera = document.getElementById('btnCancelCamera');
 
+    // Elemente interfață mobilă
+    const mBtnStart = document.getElementById('mBtnStart');
+    const mResultContainer = document.getElementById('mResultContainer');
+    const mBtnRestart = document.getElementById('mBtnRestart');
+
     let imgDesen = null;
     let imgCoalaGoala = null;
     let urlDesen = null;
@@ -254,7 +336,12 @@
     let canvasSelectieCoala = null;
 
     let puncteSelectate = [];
-    let puncteCoala = [];
+    let puncteCoala = [
+        { x: 0, y: 0 },
+        { x: 489, y: 0 },
+        { x: 489, y: 680 },
+        { x: 0, y: 680 }
+    ]; // Referință fixă pentru a doua carte la rezoluția 489x680px
 
     let isZoomed = false;
     let autoTransferRulat = false;
@@ -266,7 +353,7 @@
 
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
-    // --- ALGORITM DE DETECȚIE ROBUST CU CONNECTED COMPONENT LABELING (Evită desenele interne și umbrele) ---
+    // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU CONNECTED COMPONENT LABELING ---
     function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -304,7 +391,7 @@
             if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        // Coeficient de 0.60 adaptat pentru a ignora reflexiile specular-gri de fundal
+        // Coeficient de binarizare ridicat (0.60) adaptat pentru a ignora lucirile specular-gri din fundal
         const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.60;
         
         const visited = new Uint8Array(w * h);
@@ -346,9 +433,7 @@
             }
         }
         
-        // --- ETAPĂ DE CONNECTED COMPONENT LABELING (CCL) ---
-        // Identificăm cel mai mare obiect conex din regiunile nevizitate (visited === 0)
-        // Corpul cărții va fi întotdeauna cea mai mare componentă coneză albă, izolând detaliile negre din interior
+        // Connected Component Labeling (CCL) pe unvisited pentru a asigura izolarea exactă a cărții 1
         const label = new Int32Array(w * h);
         let maxComponentSize = 0;
         let bestLabel = 0;
@@ -484,12 +569,16 @@
         boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
         
-        const rezultat = detecteazaColturiCarte(imgCoalaGoala);
-        puncteCoala = rezultat.puncte;
-        btnResetPuncteCoala.style.display = 'inline-block';
+        // Setăm direct punctele colțurilor pe margini la raportul fix 489x680px
+        puncteCoala = [
+            { x: 0, y: 0 },
+            { x: 489, y: 0 },
+            { x: 489, y: 680 },
+            { x: 0, y: 680 }
+        ];
+        
         randeazaSelectieCoala();
         actualizeazaInfoPuncteCoala();
-        
         verificaSiRuleazaTransferAuto();
     }
 
@@ -502,28 +591,7 @@
         }
     }
 
-    // --- EVENIMENTE DE ÎNCĂRCARE MANUALĂ ---
-    incarcaDesen.addEventListener('change', (e) => {
-        if (!e.target.files || !e.target.files[0]) return;
-        if (urlDesen) URL.revokeObjectURL(urlDesen);
-        
-        const img = new Image();
-        img.onload = () => handleIncarcareImagineSursa(img);
-        urlDesen = URL.createObjectURL(e.target.files[0]);
-        img.src = urlDesen;
-    });
-
-    incarcaCoalaGoala.addEventListener('change', (e) => {
-        if (!e.target.files || !e.target.files[0]) return;
-        if (urlCoalaGoala) URL.revokeObjectURL(urlCoalaGoala);
-        
-        const img = new Image();
-        img.onload = () => handleIncarcareImagineDestinatie(img);
-        urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
-        img.src = urlCoalaGoala;
-    });
-
-    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE CU REZOLUȚIE COMPLETĂ (FULLSCREEN) ---
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-FOCUS PE ECRAN) ---
     btnStartCamera.addEventListener('click', async () => {
         opresteCameraDacaEsteActiva();
         
@@ -533,7 +601,7 @@
         try {
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: "environment", // camera din spate
+                    facingMode: "environment", // Utilizează camera din spate
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 },
@@ -542,7 +610,7 @@
 
             videoPreview.srcObject = videoStream;
             
-            // Forțăm focalizarea continuă dacă browserul suportă
+            // Forțăm focalizarea continuă dacă este disponibilă pe dispozitiv
             const track = videoStream.getVideoTracks()[0];
             if (track.getCapabilities) {
                 const capabilitati = track.getCapabilities();
@@ -560,6 +628,9 @@
 
         } catch (err) {
             cameraInterface.style.display = 'none';
+            if (window.innerWidth <= 768) {
+                mBtnStart.style.display = 'block';
+            }
             instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS.</span>";
             console.error(err);
         }
@@ -578,7 +649,7 @@
         cameraOverlay.height = cameraOverlay.clientHeight;
     }
 
-    // Bucla de analiză și urmărire în timp real pe ecran
+    // Bucla de analiză și urmărire colțuri în timp real pe ecran
     function analizeazaCadruVideoLive() {
         if (!cameraActive) return;
 
@@ -594,9 +665,8 @@
             canvasAnaliza.width = vw;
             canvasAnaliza.height = vh;
             const ctxAnaliza = canvasAnaliza.getContext('2d');
-            ctxAnaliza.drawImage(videoPreview, 0, 0, vw, vh);
+            ctxAnaliza.drawImage(videoPreview, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            // Detecție adaptivă colțuri în timp real
             const rezultat = detecteazaColturiCarte(canvasAnaliza);
             trackerColturiSursa = rezultat.puncte;
 
@@ -629,7 +699,7 @@
             oCtx.closePath();
             oCtx.stroke();
 
-            // Linii de asistență discrete
+            // Diagonale discrete de asistență
             oCtx.strokeStyle = 'rgba(255,255,255,0.25)';
             oCtx.lineWidth = 1;
             oCtx.setLineDash([4, 4]);
@@ -688,7 +758,12 @@
     btnCancelCamera.addEventListener('click', () => {
         opresteCameraDacaEsteActiva();
         cameraInterface.style.display = 'none';
-        instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
+        if (window.innerWidth <= 768) {
+            mBtnStart.style.display = 'block';
+            mResultContainer.style.display = 'none';
+        } else {
+            instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
+        }
     });
 
     function randeazaSelectie() {
@@ -712,25 +787,19 @@
         randeazaGeometriePatrulater(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
     }
 
+    // Randare simplificată pentru a doua carte la formatul fix 489x680px
     function randeazaSelectieCoala() {
         if (!imgCoalaGoala || !canvasSelectieCoala) return;
         const ctxSel = canvasSelectieCoala.getContext('2d');
-        const boxW = boxCoala.clientWidth;
-        const boxH = 250;
-        const aspect = imgCoalaGoala.naturalWidth / imgCoalaGoala.naturalHeight;
         
-        let dispW = boxW;
-        let dispH = boxW / aspect;
-        if (dispH > boxH) {
-            dispH = boxH;
-            dispW = boxH * aspect;
-        }
+        canvasSelectieCoala.width = 489;
+        canvasSelectieCoala.height = 680;
+        ctxSel.drawImage(imgCoalaGoala, 0, 0, 489, 680);
         
-        canvasSelectieCoala.width = dispW;
-        canvasSelectieCoala.height = dispH;
-        ctxSel.drawImage(imgCoalaGoala, 0, 0, dispW, dispH);
-        
-        randeazaGeometriePatrulater(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
+        // Bordură exterioară stabilă
+        ctxSel.strokeStyle = '#28a745';
+        ctxSel.lineWidth = 6;
+        ctxSel.strokeRect(0, 0, 489, 680);
     }
 
     function randeazaGeometriePatrulater(ctxSel, puncte, img, dispW, dispH, culoare) {
@@ -770,7 +839,7 @@
 
     function actualizeazaInfoPuncteCoala() {
         if (!imgCoalaGoala) return;
-        instructiuniPuncteCoala.innerHTML = "<span style='color: #28a745;'>Aliniere automată finalizată pe conturul cărții de referință.</span>";
+        instructiuniPuncteCoala.innerHTML = "<span style='color: #28a745;'>Aliniere automată pe formatul fix 489x680px.</span>";
     }
 
     btnResetPuncte.addEventListener('click', () => {
@@ -781,9 +850,13 @@
     });
 
     btnResetPuncteCoala.addEventListener('click', () => {
-        if (!imgCoalaGoala) return;
-        const rezultat = detecteazaColturiCarte(imgCoalaGoala);
-        puncteCoala = rezultat.puncte;
+        // Punctele pe cartea 2 rămân fixate pe colțuri în formatul de 489x680px
+        puncteCoala = [
+            { x: 0, y: 0 },
+            { x: 489, y: 0 },
+            { x: 489, y: 680 },
+            { x: 0, y: 680 }
+        ];
         randeazaSelectieCoala();
     });
 
@@ -873,7 +946,7 @@
         return inside;
     }
 
-    // --- EXECUȚIA TRANSFERULUI ---
+    // --- PROCESUL DE TRANSFER (Calculare margini și scalare la 489x680px) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -881,16 +954,18 @@
         butonTransfer.disabled = true;
 
         setTimeout(() => {
-            const latime = imgCoalaGoala.naturalWidth;
-            const inaltime = imgCoalaGoala.naturalHeight;
+            // Forțăm dimensiunea fixă a canvasului final la 489x680px
+            const targetW = 489;
+            const targetH = 680;
 
-            canvas.width = latime;
-            canvas.height = inaltime;
+            canvas.width = targetW;
+            canvas.height = targetH;
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
+            // Desenăm imaginea de referință scalată pe spațiul complet de 489x680px
             ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(imgCoalaGoala, 0, 0);
+            ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
             const srcCanvas = document.createElement('canvas');
             srcCanvas.width = imgDesen.naturalWidth;
@@ -905,15 +980,16 @@
 
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = latime;
-            tempCanvas.height = inaltime;
+            tempCanvas.width = targetW;
+            tempCanvas.height = targetH;
 
-            const imgDataDesen = tempCtx.createImageData(latime, inaltime);
+            const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-            const dstPoints = puncteCoala.map(p => [p.x, p.y]);
+            const dstPoints = puncteCoala.map(p => [p.x, p.y]); // [ [0,0], [489,0], [489,680], [0,680] ]
 
+            // Homografia corectează perspectiva, calculează marginile decupajului și scalează perfect la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];
@@ -923,43 +999,41 @@
             const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
             const zonaTranzitie = 15; 
 
-            for (let v = 0; v < inaltime; v++) {
-                for (let u = 0; u < latime; u++) {
-                    const destIdx = (v * latime + u) * 4;
+            for (let v = 0; v < targetH; v++) {
+                for (let u = 0; u < targetW; u++) {
+                    const destIdx = (v * targetW + u) * 4;
 
-                    if (isPointInQuad(u, v, dstPoints)) {
-                        const denom = h20 * u + h21 * v + 1.0;
-                        const x = (h00 * u + h01 * v + h02) / denom;
-                        const y = (h10 * u + h11 * v + h12) / denom;
+                    const denom = h20 * u + h21 * v + 1.0;
+                    const x = (h00 * u + h01 * v + h02) / denom;
+                    const y = (h10 * u + h11 * v + h12) / denom;
 
-                        const x0 = Math.floor(x);
-                        const y0 = Math.floor(y);
+                    const x0 = Math.floor(x);
+                    const y0 = Math.floor(y);
 
-                        if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
-                            if (isPointInQuad(x, y, srcPoints)) {
-                                const idx = (y0 * srcW + x0) * 4;
-                                const r = srcPixels[idx];
-                                const g = srcPixels[idx + 1];
-                                const b = srcPixels[idx + 2];
+                    if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
+                        if (isPointInQuad(x, y, srcPoints)) {
+                            const idx = (y0 * srcW + x0) * 4;
+                            const r = srcPixels[idx];
+                            const g = srcPixels[idx + 1];
+                            const b = srcPixels[idx + 2];
 
-                                const diferentaRoz = (r - g) + (b - g);
+                            const diferentaRoz = (r - g) + (b - g);
 
-                                let alpha = 0;
-                                if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
-                                    alpha = 255;
-                                } else if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz - zonaTranzitie) {
-                                    const ratiune = (diferentaRoz - (pragDiferentaRoz - zonaTranzitie)) / zonaTranzitie;
-                                    alpha = Math.round(255 * ratiune);
-                                }
+                            let alpha = 0;
+                            if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
+                                alpha = 255;
+                            } else if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz - zonaTranzitie) {
+                                const ratiune = (diferentaRoz - (pragDiferentaRoz - zonaTranzitie)) / zonaTranzitie;
+                                alpha = Math.round(255 * ratiune);
+                            }
 
-                                if (alpha > 0) {
-                                    outPixels[destIdx]     = r;
-                                    outPixels[destIdx + 1] = g;
-                                    outPixels[destIdx + 2] = b;
-                                    outPixels[destIdx + 3] = alpha;
-                                } else {
-                                    outPixels[destIdx + 3] = 0;
-                                }
+                            if (alpha > 0) {
+                                outPixels[destIdx]     = r;
+                                outPixels[destIdx + 1] = g;
+                                outPixels[destIdx + 2] = b;
+                                outPixels[destIdx + 3] = alpha;
+                            } else {
+                                outPixels[destIdx + 3] = 0;
                             }
                         }
                     }
@@ -973,12 +1047,34 @@
 
             butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
             butonTransfer.disabled = false;
+
+            // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
+            if (window.innerWidth <= 768) {
+                mResultContainer.style.display = 'flex';
+                mBtnStart.style.display = 'none';
+                
+                const mCanvas = document.getElementById('mCanvasRezultat');
+                mCanvas.width = targetW;
+                mCanvas.height = targetH;
+                const mCtx = mCanvas.getContext('2d');
+                mCtx.drawImage(canvas, 0, 0);
+            }
         }, 50);
     }
 
-    butonTransfer.addEventListener('click', executaTransfer);
+    // --- CONTROL WORKFLOW MOBIL ---
+    mBtnStart.addEventListener('click', () => {
+        mBtnStart.style.display = 'none';
+        btnStartCamera.click(); // Declanșează fluxul nativ de cameră
+    });
 
-    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ ---
+    mBtnRestart.addEventListener('click', () => {
+        mResultContainer.style.display = 'none';
+        mBtnStart.style.display = 'block';
+        autoTransferRulat = false; 
+    });
+
+    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ PE DISC ---
     window.addEventListener('DOMContentLoaded', () => {
         // 1. Încărcare automată Cartea 1
         const implicitSursa = new Image();
@@ -1002,7 +1098,7 @@
         implicitDest.src = 'as-02.png';
     });
 
-    // --- LOGICA FULLSCREEN ---
+    // --- LOGICA FULLSCREEN (DESKTOP ONLY) ---
     canvas.addEventListener('click', () => {
         imgFullscreen.src = canvas.toDataURL('image/png');
         imgFullscreen.className = 'img-fit'; 

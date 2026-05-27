@@ -538,7 +538,6 @@
         }
         
         // --- METODA GEOMETRICĂ: CALCUL DISTANȚĂ MAXIMĂ FAȚĂ DE CENTROID ---
-        // Previne alunecarea punctelor de colț pe marginile plate la fotografierea de sus (rotație 0)
         let sumX = 0, sumY = 0;
         const count = puncteCard.length;
         for (let i = 0; i < count; i++) {
@@ -1019,7 +1018,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Calculare proporții dinamice, Calibrări de Contrast și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Calibrare stabilă la formatul fix 489x680, Contrast S-Curve și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1027,36 +1026,15 @@
         butonTransfer.disabled = true;
 
         setTimeout(() => {
-            // Obținem colțurile detectate pentru analiză
-            const tl = puncteSelectate[0];
-            const tr = puncteSelectate[1];
-            const br = puncteSelectate[2];
-            const bl = puncteSelectate[3];
-
-            // Calculăm lungimile reale ale laturilor din imaginea sursă (folosind Pitagora)
-            const latimeSus = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-            const latimeJos = Math.hypot(br.x - bl.x, br.y - bl.y);
-            const inaltimeStanga = Math.hypot(bl.x - tl.x, bl.y - tl.y);
-            const inaltimeDreapta = Math.hypot(br.x - tr.x, br.y - tr.y);
-
-            // Facem media laturilor paralele pentru a obține dimensiunile medii ale proiecției
-            const latimeMedie = (latimeSus + latimeJos) / 2;
-            const inaltimeMedie = (inaltimeStanga + inaltimeDreapta) / 2;
-
-            // Calculăm raportul de aspect real (Lățime / Înălțime) al cărții din fotografie
-            const raportAspectNativ = latimeMedie / inaltimeMedie;
-
-            // Fixăm înălțimea la 680px și calculăm lățimea proporțională ideală a canvasului
-            // Această dinamică previne imaginea „turtită”, adaptând dreptunghiul la forma fizică a cărții capturate
+            const targetW = 489;
             const targetH = 680;
-            const targetW = Math.round(targetH * raportAspectNativ);
 
             canvas.width = targetW;
             canvas.height = targetH;
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // Pasul 1: Desenăm imaginea de referință ca fundal standard, scalată corect
+            // RESTAURARE POZA 2 (Fundal de referință fix, ne-turtit, la proporțiile native corecte de 489x680px)
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1078,16 +1056,40 @@
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
-            // Setăm punctele de destinație pe colțurile dinamice exacte ale noului dreptunghi proporțional
-            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-            const dstPoints = [
-                [0, 0],
-                [targetW, 0],
-                [targetW, targetH],
-                [0, targetH]
-            ]; 
+            // Obținem colțurile detectate pentru analiză
+            const tl = puncteSelectate[0];
+            const tr = puncteSelectate[1];
+            const br = puncteSelectate[2];
+            const bl = puncteSelectate[3];
 
-            // Homografia corectează perspectiva, decupează și scalează la targetW x targetH
+            // DETERMINARE ORIENTARE REALĂ CARTE (Soluție pentru mismatch-ul de orientare Portrait/Landscape pe mobil)
+            // Măsurăm lungimile relative ale laturilor pentru a vedea dacă în cadrul brut cartea stă culcată (Landscape) sau dreaptă (Portrait)
+            const sideW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+            const sideH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+
+            const srcPoints = [tl, tr, br, bl];
+            let dstPoints;
+
+            if (sideH >= sideW) {
+                // Cartea este deja verticală în poză: mapare standard 1-la-1 pe colțuri
+                dstPoints = [
+                    [0, 0],
+                    [targetW, 0],
+                    [targetW, targetH],
+                    [0, targetH]
+                ];
+            } else {
+                // Cartea este culcată în cadrul brut pe orizontală din cauza orientării hardware a camerei
+                // ROTIM AUTOMAT MAPAREA HOMOGRAFIEI cu 90 de grade la stânga pentru a o îndrepta perfect, fără a o mai turti!
+                dstPoints = [
+                    [0, targetH],
+                    [0, 0],
+                    [targetW, 0],
+                    [targetW, targetH]
+                ];
+            }
+
+            // Homografia corectează perspectiva, decupează, îndreaptă orientarea și scalează stabil la targetW x targetH (489x680px)
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];

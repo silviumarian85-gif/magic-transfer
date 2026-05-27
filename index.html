@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -67,44 +67,51 @@
         }
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
+
+        /* Stiluri pentru ascunderea butoanelor de încărcare manuală pe mobil */
+        @media (max-width: 768px) {
+            .desktop-only {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</h2>
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz</h2>
     
     <div class="upload-section">
         <div>
             <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
         </div>
-        <div>
+        <div class="desktop-only">
             <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Manual</label>
             <input type="file" id="incarcaDesen" accept="image/*">
         </div>
-        <div>
+        <div class="desktop-only">
             <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Referință (Cartea 2)</label>
             <input type="file" id="incarcaCoalaGoala" accept="image/*">
         </div>
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roșu (Filtru Desen): <span id="valSensibilitate">55</span></label>
+        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Desen): <span id="valSensibilitate">55</span></label>
         <input type="range" id="sensibilitate" min="15" max="140" value="55" style="width: 100%;">
     </div>
 
     <div>
-        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Roșu</button>
+        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Roz</button>
     </div>
 
     <div class="workspace">
         <div class="panel">
-            <h3>1. Cartea 1 (Video / Detecție Margini)</h3>
+            <h3>1. Cartea 1 (Video / Detecție Automată)</h3>
             <div class="preview-box" id="boxDesen">
                 <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
             </div>
             <div class="info-puncte" id="instructiuniPuncte">
-                Încarcă o imagine sau activează camera din spate a dispozitivului.
+                Încadrarea cărții se realizează complet automat.
             </div>
             <button id="btnResetPuncte" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
         </div>
@@ -121,7 +128,7 @@
         </div>
 
         <div class="panel">
-            <h3>3. Rezultat Aliniat (Doar Desenul Roșu)</h3>
+            <h3>3. Rezultat Aliniat (Doar Desenul Roz)</h3>
             <div class="preview-box" id="boxRezultat">
                 <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Aliniază și Transferă"</span>
                 <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
@@ -327,9 +334,8 @@
     function handleIncarcareImagineSursa(img) {
         opresteCameraDacaEsteActiva();
         imgDesen = img;
-        boxDesen.innerHTML = '<canvas id="canvasSelectie" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+        boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectie = document.getElementById('canvasSelectie');
-        canvasSelectie.addEventListener('click', ascultaClickSelectie);
         
         const rezultat = detecteazaColturiCarte(imgDesen);
         puncteSelectate = rezultat.puncte;
@@ -342,9 +348,8 @@
 
     function handleIncarcareImagineDestinatie(img) {
         imgCoalaGoala = img;
-        boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+        boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
-        canvasSelectieCoala.addEventListener('click', ascultaClickSelectieCoala);
         
         const rezultat = detecteazaColturiCarte(imgCoalaGoala);
         puncteCoala = rezultat.puncte;
@@ -396,7 +401,7 @@
         try {
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: "environment", // Utilizează camera principală (spate)
+                    facingMode: "environment", // Utilizează camera din spate
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 },
@@ -405,7 +410,6 @@
 
             video.srcObject = videoStream;
             
-            // Încercare de aplicare a focalizării continue pe dispozitivele mobile suportate
             const track = videoStream.getVideoTracks()[0];
             if (track.getCapabilities) {
                 const capabilitati = track.getCapabilities();
@@ -418,7 +422,7 @@
 
             cameraActive = true;
             detectieStabilaCount = 0;
-            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Îndreptați camera spre cartea de joc cu desenul roșu. Focalizarea se face automat.</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Îndreptați camera spre carte. Încadrarea și snap-ul sunt complet automate.</span>";
             
             requestAnimationFrame(() => analizeazaCadruVideo(video));
 
@@ -447,17 +451,15 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(video, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            // Detecție de colțuri pe cadru
             const rezultat = detecteazaColturiCarte(canvasAnaliza);
 
             if (rezultat.succes) {
-                // Dacă detectăm o carte, numărăm pixelii roșii din interiorul ei
-                const pixeliRosii = numaraPixeliRosiiInPatrulater(canvasAnaliza, rezultat.puncte);
+                // Numărăm pixelii roz din interiorul conturului
+                const pixeliRoz = numaraPixeliRozInPatrulater(canvasAnaliza, rezultat.puncte);
 
-                // Dacă desenul roșu este identificat în mod vizibil (peste 150 de pixeli roșii detectați)
-                if (pixeliRosii > 150) {
+                // Dacă desenul roz este identificat în mod clar (peste 150 de pixeli roz)
+                if (pixeliRoz > 150) {
                     detectieStabilaCount++;
-                    // Cerem 3 cadre succesive stabile pentru a asigura claritatea imaginii (focalizare reușită)
                     if (detectieStabilaCount >= 3) {
                         realizeazaSnapCameră(canvasAnaliza, rezultat.puncte);
                         return;
@@ -473,8 +475,8 @@
         requestAnimationFrame(() => analizeazaCadruVideo(video));
     }
 
-    function numaraPixeliRosiiInPatrulater(canvasSursa, colturiSursa) {
-        // Analiză rapidă pe canvas micșorat pentru performanță
+    // --- FILTRUL DE CULOARE PENTRU ROZ ---
+    function numaraPixeliRozInPatrulater(canvasSursa, colturiSursa) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         const scale = 100 / Math.max(canvasSursa.width, canvasSursa.height);
@@ -489,7 +491,7 @@
         const pixels = imgData.data;
         
         const colturiMici = colturiSursa.map(p => [p.x * scale, p.y * scale]);
-        const pragDiferentaRosu = parseInt(sliderSensibilitate.value);
+        const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
         let count = 0;
         
         for (let y = 0; y < h; y++) {
@@ -500,8 +502,9 @@
                     const g = pixels[idx + 1];
                     const b = pixels[idx + 2];
                     
-                    const diferentaRosu = Math.min(r - g, r - b);
-                    if (r > 70 && diferentaRosu >= pragDiferentaRosu) {
+                    // Pentru roz, atât Roșu cât și Albastru domină clar Verdele
+                    const diferentaRoz = (r - g) + (b - g);
+                    if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
                         count++;
                     }
                 }
@@ -516,63 +519,19 @@
         const imagineSnap = new Image();
         imagineSnap.onload = () => {
             imgDesen = imagineSnap;
-            puncteSelectate = colturiSursa; // Măsurăm coordonatele la rezoluția exactă a pozei făcute
+            puncteSelectate = colturiSursa; 
             
-            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
             canvasSelectie = document.getElementById('canvasSelectie');
-            canvasSelectie.addEventListener('click', ascultaClickSelectie);
             
             btnResetPuncte.style.display = 'inline-block';
             randeazaSelectie();
             actualizeazaInfoPuncte();
             
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap automat realizat cu succes! Desenul roșu a fost detectat.</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap automat realizat! Desenul roz a fost detectat.</span>";
             executaTransfer();
         };
         imagineSnap.src = canvasSursa.toDataURL('image/png');
-    }
-
-    function ascultaClickSelectie(e) {
-        if (!imgDesen) return;
-        const rect = canvasSelectie.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-        
-        const pX = (clickX / rect.width) * imgDesen.naturalWidth;
-        const pY = (clickY / rect.height) * imgDesen.naturalHeight;
-        
-        modificaPunctCelMaiApropiat(puncteSelectate, pX, pY);
-        randeazaSelectie();
-    }
-
-    function ascultaClickSelectieCoala(e) {
-        if (!imgCoalaGoala) return;
-        const rect = canvasSelectieCoala.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-        
-        const pX = (clickX / rect.width) * imgCoalaGoala.naturalWidth;
-        const pY = (clickY / rect.height) * imgCoalaGoala.naturalHeight;
-        
-        modificaPunctCelMaiApropiat(puncteCoala, pX, pY);
-        randeazaSelectieCoala();
-    }
-
-    function modificaPunctCelMaiApropiat(puncte, x, y) {
-        let distMinima = Infinity;
-        let indexApropiat = -1;
-        
-        puncte.forEach((p, index) => {
-            const distanta = Math.hypot(p.x - x, p.y - y);
-            if (distanta < distMinima) {
-                distMinima = distanta;
-                indexApropiat = index;
-            }
-        });
-        
-        if (indexApropiat !== -1) {
-            puncte[indexApropiat] = { x, y };
-        }
     }
 
     function randeazaSelectie() {
@@ -617,6 +576,7 @@
         randeazaGeometriePatrulater(ctxSel, puncteCoala, imgCoalaGoala, dispW, dispH, '#28a745');
     }
 
+    // --- DESENARE GEOMETRIE FĂRĂ PUNCTE INTERACTIVE (100% AUTOMAT) ---
     function randeazaGeometriePatrulater(ctxSel, puncte, img, dispW, dispH, culoare) {
         if (puncte.length !== 4) return;
 
@@ -625,6 +585,7 @@
             y: (p.y / img.naturalHeight) * dispH
         }));
         
+        // Desenare exclusivă a conturului (fără cercuri sau numere)
         ctxSel.strokeStyle = culoare;
         ctxSel.lineWidth = 3;
         ctxSel.beginPath();
@@ -635,7 +596,8 @@
         ctxSel.closePath();
         ctxSel.stroke();
         
-        ctxSel.strokeStyle = culoare + '44';
+        // Diagonale discrete
+        ctxSel.strokeStyle = culoare + '33';
         ctxSel.lineWidth = 1;
         ctxSel.setLineDash([4, 4]);
         ctxSel.beginPath();
@@ -645,25 +607,11 @@
         ctxSel.lineTo(dPts[3].x, dPts[3].y);
         ctxSel.stroke();
         ctxSel.setLineDash([]);
-        
-        ctxSel.fillStyle = culoare;
-        dPts.forEach((p, index) => {
-            ctxSel.beginPath();
-            ctxSel.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-            ctxSel.fill();
-            
-            ctxSel.fillStyle = '#ffffff';
-            ctxSel.font = 'bold 10px sans-serif';
-            ctxSel.textAlign = 'center';
-            ctxSel.textBaseline = 'middle';
-            ctxSel.fillText((index + 1).toString(), p.x, p.y);
-            ctxSel.fillStyle = culoare;
-        });
     }
 
     function actualizeazaInfoPuncte() {
         if (!imgDesen) return;
-        instructiuniPuncte.innerHTML = "<span style='color: #28a745;'>Colțuri exterioare detectate automat! Glisați punctele pentru corecții manuale fine.</span>";
+        instructiuniPuncte.innerHTML = "<span style='color: #28a745;'>Margini exterioare detectate automat.</span>";
     }
 
     function actualizeazaInfoPuncteCoala() {
@@ -818,7 +766,7 @@
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
-            const pragDiferentaRosu = parseInt(sliderSensibilitate.value);
+            const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
             const zonaTranzitie = 15; 
 
             for (let v = 0; v < inaltime; v++) {
@@ -840,13 +788,14 @@
                                 const g = srcPixels[idx + 1];
                                 const b = srcPixels[idx + 2];
 
-                                const diferentaRosu = Math.min(r - g, r - b);
+                                // Extragem doar culoarea roz (R și B domină G)
+                                const diferentaRoz = (r - g) + (b - g);
 
                                 let alpha = 0;
-                                if (r > 60 && diferentaRosu >= pragDiferentaRosu) {
+                                if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
                                     alpha = 255;
-                                } else if (r > 60 && diferentaRosu >= pragDiferentaRosu - zonaTranzitie) {
-                                    const ratiune = (diferentaRosu - (pragDiferentaRosu - zonaTranzitie)) / zonaTranzitie;
+                                } else if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz - zonaTranzitie) {
+                                    const ratiune = (diferentaRoz - (pragDiferentaRoz - zonaTranzitie)) / zonaTranzitie;
                                     alpha = Math.round(255 * ratiune);
                                 }
 
@@ -869,14 +818,14 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(tempCanvas, 0, 0);
 
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
             butonTransfer.disabled = false;
         }, 50);
     }
 
     butonTransfer.addEventListener('click', executaTransfer);
 
-    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ PE DISC ---
+    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ ---
     window.addEventListener('DOMContentLoaded', () => {
         // 1. Încărcare automată Cartea 1
         const implicitSursa = new Image();

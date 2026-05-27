@@ -240,7 +240,7 @@
 
     <div class="slider-box">
         <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">15</span></label>
-        <input type="range" id="sensibilitate" min="1" max="120" value="15" style="width: 100%;">
+        <input type="range" id="sensibilitate" min="0" max="120" value="15" style="width: 100%;">
     </div>
 
     <div>
@@ -290,7 +290,7 @@
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
-            <input type="range" id="mSensibilitate" min="1" max="120" value="15" style="width: 100%;">
+            <input type="range" id="mSensibilitate" min="0" max="120" value="15" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -1019,7 +1019,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Extracție directă cu Adaptive Smoothstep, Calibrări de Contrast și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Calculare proporții dinamice, Calibrări de Contrast și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1027,15 +1027,36 @@
         butonTransfer.disabled = true;
 
         setTimeout(() => {
-            const targetW = 489;
+            // Obținem colțurile detectate pentru analiză
+            const tl = puncteSelectate[0];
+            const tr = puncteSelectate[1];
+            const br = puncteSelectate[2];
+            const bl = puncteSelectate[3];
+
+            // Calculăm lungimile reale ale laturilor din imaginea sursă (folosind Pitagora)
+            const latimeSus = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+            const latimeJos = Math.hypot(br.x - bl.x, br.y - bl.y);
+            const inaltimeStanga = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+            const inaltimeDreapta = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+            // Facem media laturilor paralele pentru a obține dimensiunile medii ale proiecției
+            const latimeMedie = (latimeSus + latimeJos) / 2;
+            const inaltimeMedie = (inaltimeStanga + inaltimeDreapta) / 2;
+
+            // Calculăm raportul de aspect real (Lățime / Înălțime) al cărții din fotografie
+            const raportAspectNativ = latimeMedie / inaltimeMedie;
+
+            // Fixăm înălțimea la 680px și calculăm lățimea proporțională ideală a canvasului
+            // Această dinamică previne imaginea „turtită”, adaptând dreptunghiul la forma fizică a cărții capturate
             const targetH = 680;
+            const targetW = Math.round(targetH * raportAspectNativ);
 
             canvas.width = targetW;
             canvas.height = targetH;
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // Pasul 1: Desenăm imaginea de referință ca fundal standard (source-over)
+            // Pasul 1: Desenăm imaginea de referință ca fundal standard, scalată corect
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1057,10 +1078,16 @@
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
+            // Setăm punctele de destinație pe colțurile dinamice exacte ale noului dreptunghi proporțional
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-            const dstPoints = puncteCoala.map(p => [p.x, p.y]); 
+            const dstPoints = [
+                [0, 0],
+                [targetW, 0],
+                [targetW, targetH],
+                [0, targetH]
+            ]; 
 
-            // Homografia corectează perspectiva, decupează și scalează la 489x680px
+            // Homografia corectează perspectiva, decupează și scalează la targetW x targetH
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];

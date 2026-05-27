@@ -9,9 +9,11 @@
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h2 { color: #1a1a1a; margin-bottom: 25px; }
         
-        .upload-section { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+        .upload-section { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
         .btn-upload { background: #6c757d; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-block; transition: 0.2s; border: none; }
         .btn-upload:hover { background: #5a6268; }
+        .btn-camera { background: #007bff; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-block; transition: 0.2s; border: none; }
+        .btn-camera:hover { background: #0069d9; }
         .btn-transfer { background: #28a745; color: white; padding: 15px 45px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; border: none; transition: 0.2s; margin: 15px 0; display: inline-block; }
         .btn-transfer:hover { background: #218838; }
         .btn-transfer:disabled { background: #a5d6a7; cursor: not-allowed; }
@@ -25,7 +27,7 @@
         .panel h3 { margin-top: 0; color: #4a5568; font-size: 16px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; width: 100%; }
         
         .preview-box { width: 100%; height: 250px; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e0; border-radius: 6px; background: #f7fafc; overflow: hidden; margin-top: 10px; position: relative; }
-        .preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .preview-box img, .preview-box video { max-width: 100%; max-height: 100%; object-fit: contain; }
         
         #canvasRezultat { max-width: 100%; max-height: 100%; object-fit: contain; display: none; cursor: zoom-in; transition: transform 0.2s; }
         #canvasRezultat:hover { transform: scale(1.02); }
@@ -74,12 +76,14 @@
     
     <div class="upload-section">
         <div>
-            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Cartea 1 (Perspectivă - Desen Roșu)</label>
+            <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
+        </div>
+        <div>
+            <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Manual</label>
             <input type="file" id="incarcaDesen" accept="image/*">
         </div>
-        
         <div>
-            <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Cartea 2 (Unghi Drept - Referință)</label>
+            <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Referință (Cartea 2)</label>
             <input type="file" id="incarcaCoalaGoala" accept="image/*">
         </div>
     </div>
@@ -95,12 +99,12 @@
 
     <div class="workspace">
         <div class="panel">
-            <h3>1. Cartea 1 (Detecție Automată Margini)</h3>
+            <h3>1. Cartea 1 (Video / Detecție Margini)</h3>
             <div class="preview-box" id="boxDesen">
                 <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
             </div>
             <div class="info-puncte" id="instructiuniPuncte">
-                Încarcă imaginea cu cartea albă pe fundal negru.
+                Încarcă o imagine sau activează camera din spate a dispozitivului.
             </div>
             <button id="btnResetPuncte" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
         </div>
@@ -111,7 +115,7 @@
                 <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
             </div>
             <div class="info-puncte" id="instructiuniPuncteCoala">
-                Încarcă imaginea cu cartea de destinație.
+                Imaginea de referință cu cartea de destinație.
             </div>
             <button id="btnResetPuncteCoala" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
         </div>
@@ -135,6 +139,7 @@
     const incarcaDesen = document.getElementById('incarcaDesen');
     const incarcaCoalaGoala = document.getElementById('incarcaCoalaGoala');
     const butonTransfer = document.getElementById('butonTransfer');
+    const btnStartCamera = document.getElementById('btnStartCamera');
     const sliderSensibilitate = document.getElementById('sensibilitate');
     const valSensibilitate = document.getElementById('valSensibilitate');
     const instructiuniPuncte = document.getElementById('instructiuniPuncte');
@@ -164,21 +169,28 @@
     let isZoomed = false;
     let autoTransferRulat = false;
 
+    // Control Cameră video
+    let cameraActive = false;
+    let videoStream = null;
+    let detectieStabilaCount = 0;
+
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
-    // --- ALGORITM DE DETECȚIE BAZAT PE FLOOD-FILL EXTENSION (Exterior-Interior) ---
-    function detecteazaColturiCarte(img) {
+    // --- ALGORITM DE DETECȚIE BAZAT PE FLOOD-FILL (Exterior-Interior) ---
+    function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
         const maxDim = 200; 
-        const scale = maxDim / Math.max(img.naturalWidth, img.naturalHeight);
-        const w = Math.round(img.naturalWidth * scale);
-        const h = Math.round(img.naturalHeight * scale);
+        const srcW = imgOrCanvas.naturalWidth || imgOrCanvas.width || 300;
+        const srcH = imgOrCanvas.naturalHeight || imgOrCanvas.height || 150;
+        const scale = maxDim / Math.max(srcW, srcH);
+        const w = Math.round(srcW * scale);
+        const h = Math.round(srcH * scale);
         
         tempCanvas.width = w;
         tempCanvas.height = h;
-        tempCtx.drawImage(img, 0, 0, w, h);
+        tempCtx.drawImage(imgOrCanvas, 0, 0, w, h);
         
         const imgData = tempCtx.getImageData(0, 0, w, h);
         const pixels = imgData.data;
@@ -253,9 +265,9 @@
         }
         
         const defaultPoints = () => {
-            const cx = img.naturalWidth * 0.5;
-            const cy = img.naturalHeight * 0.5;
-            const rw = img.naturalWidth * 0.25;
+            const cx = srcW * 0.5;
+            const cy = srcH * 0.5;
+            const rw = srcW * 0.25;
             const rh = rw * 1.4;
             return [
                 { x: cx - rw, y: cy - rh },
@@ -265,8 +277,10 @@
             ];
         };
 
-        if (puncteCard.length < 100) {
-            return defaultPoints();
+        const totalPixeli = w * h;
+        const procentAcoperire = puncteCard.length / totalPixeli;
+        if (puncteCard.length < 150 || procentAcoperire > 0.85) {
+            return { puncte: defaultPoints(), succes: false };
         }
         
         let minSum = Infinity, maxSum = -Infinity;
@@ -298,22 +312,27 @@
         }
         
         const scaleFactor = 1 / scale;
-        return [
-            { x: tl.x * scaleFactor, y: tl.y * scaleFactor }, 
-            { x: tr.x * scaleFactor, y: tr.y * scaleFactor }, 
-            { x: br.x * scaleFactor, y: br.y * scaleFactor }, 
-            { x: bl.x * scaleFactor, y: bl.y * scaleFactor }  
-        ];
+        return {
+            puncte: [
+                { x: tl.x * scaleFactor, y: tl.y * scaleFactor }, 
+                { x: tr.x * scaleFactor, y: tr.y * scaleFactor }, 
+                { x: br.x * scaleFactor, y: br.y * scaleFactor }, 
+                { x: bl.x * scaleFactor, y: bl.y * scaleFactor }  
+            ],
+            succes: true
+        };
     }
 
     // --- REUTILIZARE LOGICĂ DE PROCESARE IMAGINI ---
     function handleIncarcareImagineSursa(img) {
+        opresteCameraDacaEsteActiva();
         imgDesen = img;
         boxDesen.innerHTML = '<canvas id="canvasSelectie" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectie = document.getElementById('canvasSelectie');
         canvasSelectie.addEventListener('click', ascultaClickSelectie);
         
-        puncteSelectate = detecteazaColturiCarte(imgDesen);
+        const rezultat = detecteazaColturiCarte(imgDesen);
+        puncteSelectate = rezultat.puncte;
         btnResetPuncte.style.display = 'inline-block';
         randeazaSelectie();
         actualizeazaInfoPuncte();
@@ -327,7 +346,8 @@
         canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
         canvasSelectieCoala.addEventListener('click', ascultaClickSelectieCoala);
         
-        puncteCoala = detecteazaColturiCarte(imgCoalaGoala);
+        const rezultat = detecteazaColturiCarte(imgCoalaGoala);
+        puncteCoala = rezultat.puncte;
         btnResetPuncteCoala.style.display = 'inline-block';
         randeazaSelectieCoala();
         actualizeazaInfoPuncteCoala();
@@ -335,7 +355,6 @@
         verificaSiRuleazaTransferAuto();
     }
 
-    // Declanșare automată transfer la încărcarea inițială
     function verificaSiRuleazaTransferAuto() {
         if (imgDesen && imgCoalaGoala && !autoTransferRulat) {
             setTimeout(() => {
@@ -345,7 +364,7 @@
         }
     }
 
-    // --- EVENIMENTE DE ÎNCĂRCARE MANUALĂ (PĂSTRATE DE LA UTILIZATOR) ---
+    // --- EVENIMENTE DE ÎNCĂRCARE MANUALĂ ---
     incarcaDesen.addEventListener('change', (e) => {
         if (!e.target.files || !e.target.files[0]) return;
         if (urlDesen) URL.revokeObjectURL(urlDesen);
@@ -365,6 +384,153 @@
         urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
         img.src = urlCoalaGoala;
     });
+
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-SNAP) ---
+    btnStartCamera.addEventListener('click', async () => {
+        opresteCameraDacaEsteActiva();
+        
+        boxDesen.innerHTML = '<video id="videoPreview" autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>';
+        const video = document.getElementById('videoPreview');
+        instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Camera se inițializează... Oferiți permisiunea.</span>";
+
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "environment", // Utilizează camera principală (spate)
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            });
+
+            video.srcObject = videoStream;
+            
+            // Încercare de aplicare a focalizării continue pe dispozitivele mobile suportate
+            const track = videoStream.getVideoTracks()[0];
+            if (track.getCapabilities) {
+                const capabilitati = track.getCapabilities();
+                if (capabilitati.focusMode && capabilitati.focusMode.includes('continuous')) {
+                    track.applyConstraints({
+                        advanced: [{ focusMode: 'continuous' }]
+                    }).catch(err => console.log("Focus continuous nesuportat:", err));
+                }
+            }
+
+            cameraActive = true;
+            detectieStabilaCount = 0;
+            instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🔍 Îndreptați camera spre cartea de joc cu desenul roșu. Focalizarea se face automat.</span>";
+            
+            requestAnimationFrame(() => analizeazaCadruVideo(video));
+
+        } catch (err) {
+            instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS și ați oferit permisiunile.</span>";
+            console.error(err);
+        }
+    });
+
+    function opresteCameraDacaEsteActiva() {
+        cameraActive = false;
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+        }
+    }
+
+    // Bucla de analiză pe fluxul video în timp real
+    function analizeazaCadruVideo(video) {
+        if (!cameraActive) return;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            const canvasAnaliza = document.createElement('canvas');
+            canvasAnaliza.width = video.videoWidth;
+            canvasAnaliza.height = video.videoHeight;
+            const ctxAnaliza = canvasAnaliza.getContext('2d');
+            ctxAnaliza.drawImage(video, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
+
+            // Detecție de colțuri pe cadru
+            const rezultat = detecteazaColturiCarte(canvasAnaliza);
+
+            if (rezultat.succes) {
+                // Dacă detectăm o carte, numărăm pixelii roșii din interiorul ei
+                const pixeliRosii = numaraPixeliRosiiInPatrulater(canvasAnaliza, rezultat.puncte);
+
+                // Dacă desenul roșu este identificat în mod vizibil (peste 150 de pixeli roșii detectați)
+                if (pixeliRosii > 150) {
+                    detectieStabilaCount++;
+                    // Cerem 3 cadre succesive stabile pentru a asigura claritatea imaginii (focalizare reușită)
+                    if (detectieStabilaCount >= 3) {
+                        realizeazaSnapCameră(canvasAnaliza, rezultat.puncte);
+                        return;
+                    }
+                } else {
+                    detectieStabilaCount = 0;
+                }
+            } else {
+                detectieStabilaCount = 0;
+            }
+        }
+
+        requestAnimationFrame(() => analizeazaCadruVideo(video));
+    }
+
+    function numaraPixeliRosiiInPatrulater(canvasSursa, colturiSursa) {
+        // Analiză rapidă pe canvas micșorat pentru performanță
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const scale = 100 / Math.max(canvasSursa.width, canvasSursa.height);
+        const w = Math.round(canvasSursa.width * scale);
+        const h = Math.round(canvasSursa.height * scale);
+        
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        tempCtx.drawImage(canvasSursa, 0, 0, w, h);
+        
+        const imgData = tempCtx.getImageData(0, 0, w, h);
+        const pixels = imgData.data;
+        
+        const colturiMici = colturiSursa.map(p => [p.x * scale, p.y * scale]);
+        const pragDiferentaRosu = parseInt(sliderSensibilitate.value);
+        let count = 0;
+        
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (isPointInQuad(x, y, colturiMici)) {
+                    const idx = (y * w + x) * 4;
+                    const r = pixels[idx];
+                    const g = pixels[idx + 1];
+                    const b = pixels[idx + 2];
+                    
+                    const diferentaRosu = Math.min(r - g, r - b);
+                    if (r > 70 && diferentaRosu >= pragDiferentaRosu) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    function realizeazaSnapCameră(canvasSursa, colturiSursa) {
+        opresteCameraDacaEsteActiva();
+        
+        const imagineSnap = new Image();
+        imagineSnap.onload = () => {
+            imgDesen = imagineSnap;
+            puncteSelectate = colturiSursa; // Măsurăm coordonatele la rezoluția exactă a pozei făcute
+            
+            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+            canvasSelectie = document.getElementById('canvasSelectie');
+            canvasSelectie.addEventListener('click', ascultaClickSelectie);
+            
+            btnResetPuncte.style.display = 'inline-block';
+            randeazaSelectie();
+            actualizeazaInfoPuncte();
+            
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap automat realizat cu succes! Desenul roșu a fost detectat.</span>";
+            executaTransfer();
+        };
+        imagineSnap.src = canvasSursa.toDataURL('image/png');
+    }
 
     function ascultaClickSelectie(e) {
         if (!imgDesen) return;
@@ -507,13 +673,15 @@
 
     btnResetPuncte.addEventListener('click', () => {
         if (!imgDesen) return;
-        puncteSelectate = detecteazaColturiCarte(imgDesen);
+        const rezultat = detecteazaColturiCarte(imgDesen);
+        puncteSelectate = rezultat.puncte;
         randeazaSelectie();
     });
 
     btnResetPuncteCoala.addEventListener('click', () => {
         if (!imgCoalaGoala) return;
-        puncteCoala = detecteazaColturiCarte(imgCoalaGoala);
+        const rezultat = detecteazaColturiCarte(imgCoalaGoala);
+        puncteCoala = rezultat.puncte;
         randeazaSelectieCoala();
     });
 
@@ -708,32 +876,31 @@
 
     butonTransfer.addEventListener('click', executaTransfer);
 
-    // --- LOGICA DE ÎNCĂRCARE AUTOMATĂ LA PORNIRE ---
+    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ PE DISC ---
     window.addEventListener('DOMContentLoaded', () => {
         // 1. Încărcare automată Cartea 1
         const implicitSursa = new Image();
         implicitSursa.onload = () => handleIncarcareImagineSursa(implicitSursa);
         implicitSursa.onerror = () => {
-            boxDesen.innerHTML = '<span style="color: #e53e3e; font-size: 14px;">Nu s-a putut încărca "as-01.png" automat. Vă rugăm să folosiți încărcarea manuală.</span>';
+            boxDesen.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca "as-01.png" automat. Folosiți camera sau încărcarea manuală.</span>';
         };
         implicitSursa.src = 'as-01.png';
 
-        // 2. Încărcare automată Cartea 2 (cu fallback pentru extensie)
+        // 2. Încărcare automată Cartea 2
         const implicitDest = new Image();
         implicitDest.onload = () => handleIncarcareImagineDestinatie(implicitDest);
         implicitDest.onerror = () => {
-            // Încercare de rezolvare în caz de eroare / fallback .ong
             const fallbackDest = new Image();
             fallbackDest.onload = () => handleIncarcareImagineDestinatie(fallbackDest);
             fallbackDest.onerror = () => {
-                boxCoala.innerHTML = '<span style="color: #e53e3e; font-size: 14px;">Nu s-a putut încărca "as-02.png" automat. Vă rugăm să folosiți încărcarea manuală.</span>';
+                boxCoala.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca "as-02.png" automat. Folosiți încărcarea manuală.</span>';
             };
             fallbackDest.src = 'as-02.ong';
         };
         implicitDest.src = 'as-02.png';
     });
 
-    // --- LOGICA DE CORESPONDENȚĂ ZOOM ȘI FULLSCREEN PENTRU INTERFAȚĂ ---
+    // --- LOGICA FULLSCREEN ---
     canvas.addEventListener('click', () => {
         imgFullscreen.src = canvas.toDataURL('image/png');
         imgFullscreen.className = 'img-fit'; 

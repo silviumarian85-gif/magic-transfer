@@ -254,7 +254,7 @@
                 <span style="color: #a0aec0; font-size: 14px;">Se încarcă imaginea implicită...</span>
             </div>
             <div class="info-puncte" id="instructiuniPuncte">
-                Încadrarea cărții se realizaeză complet automat.
+                Încadrarea cărții se realizează complet automat.
             </div>
             <button id="btnResetPuncte" class="btn-upload" style="margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 13px; display: none;">🔄 Resetează Colțuri</button>
         </div>
@@ -764,11 +764,9 @@
 
         const track = videoStream.getVideoTracks()[0];
         
-        // Verificăm suportul pentru ImageCapture (Asigură calitatea nativă maximă a camerei)
         if (window.ImageCapture) {
             try {
                 const imageCapture = new ImageCapture(track);
-                // takePhoto apelează controlul hardware de stabilizare și focalizare nativă a telefonului
                 const blob = await imageCapture.takePhoto();
                 const url = URL.createObjectURL(blob);
                 
@@ -778,13 +776,12 @@
                     proceseazaSnapFinal(snapImg);
                 };
                 snapImg.src = url;
-                return; // Oprim execuția pentru a evita fallback-ul pe canvas
+                return; 
             } catch (err) {
                 console.warn("ImageCapture a eșuat, se aplică fallback-ul pe Canvas video:", err);
             }
         }
 
-        // Fallback pe Canvas în caz că browserul nu suportă ImageCapture (Safari)
         const vw = videoPreview.videoWidth;
         const vh = videoPreview.videoHeight;
         const snapCanvas = document.createElement('canvas');
@@ -804,7 +801,6 @@
         opresteCameraDacaEsteActiva();
         cameraInterface.style.display = 'none';
 
-        // Detectăm colțurile cu rezoluție mare direct pe fotografia nativă obținută
         const rezFinal = detecteazaColturiCarte(snapImg);
         
         imgDesen = snapImg;
@@ -824,13 +820,11 @@
             mResultContainer.style.display = 'none';
             mAdjustmentContainer.style.display = 'flex';
             
-            // Desenăm imaginea de prevualizare pentru a regla glisorul înainte de extragere
             const mCanvasPreview = document.getElementById('mCanvasPreview');
             mCanvasPreview.width = 489;
             mCanvasPreview.height = 680;
             const mCtxPreview = mCanvasPreview.getContext('2d');
             
-            // Generăm prevualizarea la dimensiunea fixă
             mCtxPreview.drawImage(snapImg, 0, 0, 489, 680);
         } else {
             executaTransfer();
@@ -1027,21 +1021,20 @@
     }
 
     // --- FILTRU DE CLARITATE CONVOLUȚIONAL (Unsharp Sharpening) ---
-    // Rulează un algoritm rapid de sharpening 3x3 în memorie pe pixelii decupați pentru a pregăti conturul liniilor subțiri
     function aplicaClaritate(imageData) {
         const w = imageData.width;
         const h = imageData.height;
         const src = imageData.data;
         const output = new Uint8ClampedArray(src.length);
         
-        // Kernel clasic de accentuare contrast/claritate
+        // Kernel de accentuare a clarității marginilor
         //  0  -1   0
         // -1   5  -1
         //  0  -1   0
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
                 const idx = (y * w + x) * 4;
-                output[idx + 3] = src[idx + 3]; // Păstrăm opacitatea intactă
+                output[idx + 3] = src[idx + 3]; 
                 
                 if (x === 0 || x === w - 1 || y === 0 || y === h - 1) {
                     output[idx] = src[idx];
@@ -1069,7 +1062,7 @@
         src.set(output);
     }
 
-    // --- PROCESUL DE TRANSFER (Calculare margini, pre-clarificare, dilatare spațială și blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Versetul simplu: Pre-clarificare, Extracție biliniară directă cu Smoothstep și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1099,6 +1092,7 @@
             const srcW = imgDesen.naturalWidth;
             const srcH = imgDesen.naturalHeight;
 
+            // Canvas temporar pentru proiectarea inițială
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             tempCanvas.width = targetW;
@@ -1175,101 +1169,60 @@
                 }
             }
 
-            // Pasul 1.2: Aplicăm filtrul convolutional de claritate direct pe imaginea deformată (în memorie)
+            // Pasul 1.2: Aplicăm filtrul convolutional de claritate (Unsharp / Sharpening) pe imaginea deformată în memorie
             aplicaClaritate(imgDataWarped);
             const clarifiedPixels = imgDataWarped.data;
 
-            // Pregătim datele pentru pasul de extracție și dilatare
+            // Pregătim datele pentru pasul de extracție cromatică directă cu Smoothstep (fără dilatarea pe vecinătăți)
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
-            const rawScores = new Float32Array(targetW * targetH);
-            const tempR = new Uint8Array(targetW * targetH);
-            const tempG = new Uint8Array(targetW * targetH);
-            const tempB = new Uint8Array(targetW * targetH);
-
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
 
-            // Pasul 2.1: Analiză și extragere cernelii din imaginea clarificată
+            // Pasul 2: Extracție biliniară directă cu Smoothstep din imaginea clarificată
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
-                    const idx = v * targetW + u;
-                    const r = clarifiedPixels[idx * 4];
-                    const g = clarifiedPixels[idx * 4 + 1];
-                    const b = clarifiedPixels[idx * 4 + 2];
-
-                    tempR[idx] = r;
-                    tempG[idx] = g;
-                    tempB[idx] = b;
+                    const idx = (v * targetW + u) * 4;
+                    const r = clarifiedPixels[idx];
+                    const g = clarifiedPixels[idx + 1];
+                    const b = clarifiedPixels[idx + 2];
 
                     const luma = 0.299 * r + 0.587 * g + 0.114 * b;
                     const diferentaAlbastru = b - Math.max(r, g);
 
+                    // Scorul de prezență a cernelei (hibrid: luma scăzută sau nuanță puternică de albastru)
                     let scorCerneala = 0;
+                    
                     if (luma < pragSensibilitate) {
                         scorCerneala = (pragSensibilitate - luma) / pragSensibilitate * 255;
                     }
+                    
                     if (diferentaAlbastru > 10 && luma < 160) {
                         scorCerneala = Math.max(scorCerneala, (diferentaAlbastru * 3) + (160 - luma));
                     }
 
-                    rawScores[idx] = scorCerneala;
-                }
-            }
-
-            // Pasul 2.2: Dilatare spațială adaptivă de +2,3 pixeli cu atenuare bazată pe distanță
-            for (let v = 0; v < targetH; v++) {
-                for (let u = 0; u < targetW; u++) {
-                    const destIdx = (v * targetW + u) * 4;
-                    
-                    let maxScor = 0;
-                    let bestU = u;
-                    let bestV = v;
-
-                    for (let dv = -2; dv <= 2; dv++) {
-                        const nv = v + dv;
-                        if (nv < 0 || nv >= targetH) continue;
-                        for (let du = -2; du <= 2; du++) {
-                            const nu = u + du;
-                            if (nu < 0 || nu >= targetW) continue;
-
-                            const dist = Math.hypot(du, dv);
-                            if (dist > 2.5) continue; 
-
-                            const neighIdx = nv * targetW + nu;
-                            const val = rawScores[neighIdx];
-
-                            const weighted = val * (1.0 - dist / 3.0);
-                            if (weighted > maxScor) {
-                                maxScor = weighted;
-                                bestU = nu;
-                                bestV = nv;
-                            }
-                        }
-                    }
-
+                    // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep (smooth)
                     let alpha = 0;
-                    if (maxScor > 10) {
-                        const t = Math.min(1.0, Math.max(0.0, (maxScor - 10) / 45));
-                        const smoothT = t * t * (3.0 - 2.0 * t); // Netezire Smoothstep
+                    if (scorCerneala > 10) {
+                        const t = Math.min(1.0, Math.max(0.0, (scorCerneala - 10) / 45));
+                        const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
                         alpha = Math.round(smoothT * 255);
                     }
 
                     if (alpha > 0) {
-                        const bestIdx = bestV * targetW + bestU;
-                        outPixels[destIdx]     = tempR[bestIdx];
-                        outPixels[destIdx + 1] = tempG[bestIdx];
-                        outPixels[destIdx + 2] = tempB[bestIdx];
-                        outPixels[destIdx + 3] = alpha;
+                        outPixels[idx]     = r;
+                        outPixels[idx + 1] = g;
+                        outPixels[idx + 2] = b;
+                        outPixels[idx + 3] = alpha;
                     } else {
-                        outPixels[destIdx + 3] = 0;
+                        outPixels[idx + 3] = 0;
                     }
                 }
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul filtrat și dilatat folosind modul de blending MULTIPLY
+            // Pasul 3: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 
@@ -1279,7 +1232,7 @@
             butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Albastru";
             butonTransfer.disabled = false;
 
-            // Tratare finală flux pe mobil
+            // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
                 mBtnStart.style.display = 'none';

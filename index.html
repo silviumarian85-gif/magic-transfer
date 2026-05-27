@@ -228,7 +228,7 @@
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 20px;">
             <div style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-                Versiune 13
+                Versiune 14
             </div>
         </div>
 
@@ -291,7 +291,7 @@
 <div class="mobile-flow">
     <!-- Badge Iteratie Mobil: Afișare mare și clară -->
     <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 35px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-        Versiune 13
+        Versiune 14
     </div>
 
     <!-- Pasul 1: Doar butonul de pornire -->
@@ -1244,10 +1244,14 @@
                                 const albire = Math.min(0.9, (g + b) / (2 * r + 1));
 
                                 // Ajustăm coeficientul de corecție dinamic: în zonele "spălăcite" corecția este masivă
-                                const factorCorectie = Math.max(0.4, albire); 
+                                // Începând cu Versiunea 14: aplicăm corecție DOAR dacă lumina este puternică (albire > 0.35)
+                                // și o limităm la maxim 65% pentru a lăsa să se vadă textura markerului în zonele bune.
+                                let factorCorectie = 0;
+                                if (albire > 0.35) {
+                                    factorCorectie = Math.min(0.65, (albire - 0.35) / (0.9 - 0.35));
+                                }
 
-                                // Re-saturăm pixelii: coborâm canalele G și B și menținem R la un prag înalt constant
-                                const nouR = Math.max(200, origR);
+                                const nouR = Math.round(origR * (1 - factorCorectie) + tintaR * factorCorectie);
                                 const nouG = Math.round(origG * (1 - factorCorectie) + tintaG * factorCorectie);
                                 const nouB = Math.round(origB * (1 - factorCorectie) + tintaB * factorCorectie);
 

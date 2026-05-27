@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 19
+            Versiune 20
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -257,6 +257,11 @@
         <div class="slider-box" style="margin: 0;">
             <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
             <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
+        </div>
+
+        <div class="slider-box" style="margin: 0;">
+            <label for="saturatieRosu">Saturație Desen Roșu: <span id="valSaturatieRosu">100</span>%</label>
+            <input type="range" id="saturatieRosu" min="0" max="200" value="100" style="width: 100%;">
         </div>
     </div>
 
@@ -303,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 19
+            Versiune 20
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -325,6 +330,11 @@
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">20</span></label>
             <input type="range" id="mSensibilitate" min="0" max="150" value="20" style="width: 100%;">
+        </div>
+
+        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 10px;">
+            <label for="mSaturatieRosu" style="color: #fff; display: block; margin-bottom: 5px;">Saturație Desen Roșu: <span id="mValSaturatieRosu">100</span>%</label>
+            <input type="range" id="mSaturatieRosu" min="0" max="200" value="100" style="width: 100%;">
         </div>
 
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
@@ -359,6 +369,14 @@
     
     const sliderSensibilitate = document.getElementById('sensibilitate');
     const valSensibilitate = document.getElementById('valSensibilitate');
+
+    // Elementele noi pentru Saturație (PC)
+    const sliderSaturatie = document.getElementById('saturatieRosu');
+    const valSaturatie = document.getElementById('valSaturatieRosu');
+
+    // Elementele noi pentru Saturație (Mobil)
+    const mSliderSaturatie = document.getElementById('mSaturatieRosu');
+    const mValSaturatie = document.getElementById('mValSaturatieRosu');
 
     const instructiuniPuncte = document.getElementById('instructiuniPuncte');
     const instructiuniPuncteCoala = document.getElementById('instructiuniPuncteCoala');
@@ -470,6 +488,18 @@
         mValSensibilitate.textContent = mSensibilitate.value;
         sliderSensibilitate.value = mSensibilitate.value;
         valSensibilitate.textContent = mSensibilitate.value;
+    });
+
+    // Sincronizare Saturație
+    sliderSaturatie.addEventListener('input', () => {
+        valSaturatie.textContent = sliderSaturatie.value;
+        mSliderSaturatie.value = sliderSaturatie.value;
+        mValSaturatie.textContent = sliderSaturatie.value;
+    });
+    mSliderSaturatie.addEventListener('input', () => {
+        mValSaturatie.textContent = mSliderSaturatie.value;
+        sliderSaturatie.value = mSliderSaturatie.value;
+        valSaturatie.textContent = mSliderSaturatie.value;
     });
 
     // Funcție pentru a ascunde badge-ul de versiune pe PC
@@ -1276,6 +1306,8 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
+            const satFactor = parseFloat(sliderSaturatie.value) / 100; // 0.0 - 2.0 (unde 1.0 este nativ)
+
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
             for (let v = 0; v < targetH; v++) {
@@ -1323,7 +1355,7 @@
                             const diferentaRosu = r - maxGB;
                             
                             // Evaluăm raportul de saturație al canalului roșu (rRatio).
-                            // Pe suprafețele de alb cal d / gri, acest raport este sub 1.15.
+                            // Pe suprafețele de alb cald / gri, acest raport este sub 1.15.
                             // Pentru cerneală roșie reală (fie ea și în degrade sau umbrită), raportul depășește 1.18.
                             const rRatio = r / (maxGB + 1);
 
@@ -1346,11 +1378,29 @@
                             }
 
                             if (alpha > 0) {
-                                // --- SCRIPT DE PROCESARE FĂRĂ UNIFORMIZARE SAU CONTRAST ---
-                                // Păstrăm și transferăm intensitățile și culorile RGB native exact așa cum se regăsesc în imaginea originală
-                                outPixels[destIdx]     = Math.round(r);
-                                outPixels[destIdx + 1] = Math.round(g);
-                                outPixels[destIdx + 2] = Math.round(b);
+                                // --- AJUSTARE DINAMICĂ A SATURAȚIEI ---
+                                let finalR = r;
+                                let finalG = g;
+                                let finalB = b;
+
+                                if (satFactor !== 1.0) {
+                                    // Calculăm luminanța pixelului (formula standard Rec. 601)
+                                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                                    // Interpolăm sau extrapolăm RGB-ul în raport cu luminanța (valoarea de gri)
+                                    finalR = luma + (r - luma) * satFactor;
+                                    finalG = luma + (g - luma) * satFactor;
+                                    finalB = luma + (b - luma) * satFactor;
+
+                                    // Plafonăm valorile în intervalul standard [0, 255] pentru a preveni aberațiile cromatice
+                                    finalR = Math.max(0, Math.min(255, finalR));
+                                    finalG = Math.max(0, Math.min(255, finalG));
+                                    finalB = Math.max(0, Math.min(255, finalB));
+                                }
+
+                                outPixels[destIdx]     = Math.round(finalR);
+                                outPixels[destIdx + 1] = Math.round(finalG);
+                                outPixels[destIdx + 2] = Math.round(finalB);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
                                 outPixels[destIdx + 3] = 0;

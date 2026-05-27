@@ -98,6 +98,7 @@
                 height: 100%;
                 box-sizing: border-box;
                 padding: 20px;
+                overflow-y: auto;
             }
             .btn-mobile-start {
                 background: #007bff; 
@@ -120,7 +121,7 @@
             }
             .m-canvas {
                 max-width: 90vw;
-                max-height: 70vh;
+                max-height: 50vh;
                 object-fit: contain;
                 border-radius: 12px;
                 box-shadow: 0 4px 25px rgba(0,0,0,0.6);
@@ -135,6 +136,17 @@
                 font-weight: bold;
                 border-radius: 8px;
                 cursor: pointer;
+            }
+            
+            /* Ajustare stiluri elemente temporare pe mobil */
+            .m-adjust-container {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                box-sizing: border-box;
             }
         }
 
@@ -274,6 +286,16 @@
     <!-- Pasul 1: Doar butonul de pornire -->
     <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
     
+    <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
+    <div id="mAdjustmentContainer" class="m-adjust-container">
+        <canvas id="mCanvasPreview" class="m-canvas"></canvas>
+        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">115</span></label>
+            <input type="range" id="mSensibilitate" min="30" max="170" value="115" style="width: 100%;">
+        </div>
+        <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
+    </div>
+    
     <!-- Pasul 3: Doar rezultatul procesat -->
     <div id="mResultContainer" class="m-result-container">
         <canvas id="mCanvasRezultat" class="m-canvas"></canvas>
@@ -325,6 +347,10 @@
 
     // Elemente interfață mobilă
     const mBtnStart = document.getElementById('mBtnStart');
+    const mAdjustmentContainer = document.getElementById('mAdjustmentContainer');
+    const mSensibilitate = document.getElementById('mSensibilitate');
+    const mValSensibilitate = document.getElementById('mValSensibilitate');
+    const mBtnProcess = document.getElementById('mBtnProcess');
     const mResultContainer = document.getElementById('mResultContainer');
     const mBtnRestart = document.getElementById('mBtnRestart');
 
@@ -352,6 +378,13 @@
     let trackerColturiSursa = [];
 
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
+
+    // Sincronizare glisoare (Desktop <-> Mobil)
+    mSensibilitate.addEventListener('input', () => {
+        mValSensibilitate.textContent = mSensibilitate.value;
+        sliderSensibilitate.value = mSensibilitate.value;
+        valSensibilitate.textContent = mSensibilitate.value;
+    });
 
     // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU CONNECTED COMPONENT LABELING ---
     function detecteazaColturiCarte(imgOrCanvas) {
@@ -391,7 +424,6 @@
             if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        // Coeficient de binarizare ridicat (0.60) adaptat pentru a ignora lucirile specular-gri din fundal
         const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.60;
         
         const visited = new Uint8Array(w * h);
@@ -433,7 +465,6 @@
             }
         }
         
-        // Connected Component Labeling (CCL) pe unvisited pentru a asigura izolarea exactă a cărții 1
         const label = new Int32Array(w * h);
         let maxComponentSize = 0;
         let bestLabel = 0;
@@ -569,7 +600,6 @@
         boxCoala.innerHTML = '<canvas id="canvasSelectieCoala" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectieCoala = document.getElementById('canvasSelectieCoala');
         
-        // Setăm direct punctele colțurilor pe margini la raportul fix 489x680px
         puncteCoala = [
             { x: 0, y: 0 },
             { x: 489, y: 0 },
@@ -620,7 +650,6 @@
         instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Se inițializează...</span>";
 
         try {
-            // Solicităm parametrii corespunzători rezoluției 4K (3840x2160) pentru claritate maximă
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "environment", 
@@ -632,7 +661,6 @@
 
             videoPreview.srcObject = videoStream;
             
-            // Forțăm focalizarea continuă dacă este disponibilă pe dispozitiv
             const track = videoStream.getVideoTracks()[0];
             if (track.getCapabilities) {
                 const capabilitati = track.getCapabilities();
@@ -671,7 +699,6 @@
         cameraOverlay.height = cameraOverlay.clientHeight;
     }
 
-    // Bucla de analiză și urmărire colțuri în timp real pe ecran
     function analizeazaCadruVideoLive() {
         if (!cameraActive) return;
 
@@ -695,7 +722,6 @@
             const oCtx = cameraOverlay.getContext('2d');
             oCtx.clearRect(0, 0, cameraOverlay.width, cameraOverlay.height);
 
-            // Maparea coordonatelor native video pe layout-ul CSS (object-fit: cover)
             const canvasW = cameraOverlay.width;
             const canvasH = cameraOverlay.height;
             const scaleX = canvasW / vw;
@@ -710,7 +736,6 @@
                 y: pt.y * scale + offsetY
             }));
 
-            // Desenăm chenarul verde (activ/valid) sau roșu (instabil)
             oCtx.strokeStyle = rezultat.succes ? '#28a745' : '#ff073a';
             oCtx.lineWidth = 4;
             oCtx.beginPath();
@@ -721,7 +746,6 @@
             oCtx.closePath();
             oCtx.stroke();
 
-            // Diagonale discrete de asistență
             oCtx.strokeStyle = 'rgba(255,255,255,0.25)';
             oCtx.lineWidth = 1;
             oCtx.setLineDash([4, 4]);
@@ -772,7 +796,25 @@
             actualizeazaInfoPuncte();
             
             instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap manual salvat!</span>";
-            executaTransfer();
+
+            // PE MOBIL: Redirecționăm către Pasul 2.5 (Ajustare Sensibilitate) în loc de procesare imediată
+            if (window.innerWidth <= 768) {
+                mBtnStart.style.display = 'none';
+                mResultContainer.style.display = 'none';
+                mAdjustmentContainer.style.display = 'flex';
+                
+                const mCanvasPreview = document.getElementById('mCanvasPreview');
+                mCanvasPreview.width = snapCanvas.width;
+                mCanvasPreview.height = snapCanvas.height;
+                const mCtxPreview = mCanvasPreview.getContext('2d');
+                mCtxPreview.drawImage(snapCanvas, 0, 0);
+                
+                // Desenăm și chenarul de detecție pentru feedback vizual suplimentar
+                randeazaGeometriePatrulater(mCtxPreview, colțuriSalvate, imagineSnap, snapCanvas.width, snapCanvas.height, '#ff073a');
+            } else {
+                // PE DESKTOP: Executăm direct procesarea ca înainte
+                executaTransfer();
+            }
         };
         imagineSnap.src = snapCanvas.toDataURL('image/png');
     });
@@ -783,6 +825,7 @@
         if (window.innerWidth <= 768) {
             mBtnStart.style.display = 'block';
             mResultContainer.style.display = 'none';
+            mAdjustmentContainer.style.display = 'none';
         } else {
             instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
         }
@@ -809,7 +852,6 @@
         randeazaGeometriePatrulater(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
     }
 
-    // Randare simplificată pentru a doua carte la formatul fix 489x680px
     function randeazaSelectieCoala() {
         if (!imgCoalaGoala || !canvasSelectieCoala) return;
         const ctxSel = canvasSelectieCoala.getContext('2d');
@@ -818,7 +860,6 @@
         canvasSelectieCoala.height = 680;
         ctxSel.drawImage(imgCoalaGoala, 0, 0, 489, 680);
         
-        // Bordură exterioară stabilă
         ctxSel.strokeStyle = '#28a745';
         ctxSel.lineWidth = 6;
         ctxSel.strokeRect(0, 0, 489, 680);
@@ -872,7 +913,6 @@
     });
 
     btnResetPuncteCoala.addEventListener('click', () => {
-        // Punctele pe cartea 2 rămân fixate pe colțuri în formatul de 489x680px
         puncteCoala = [
             { x: 0, y: 0 },
             { x: 489, y: 0 },
@@ -984,7 +1024,6 @@
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // Pasul 1: Desenăm imaginea de referință ca fundal standard (source-over)
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1008,9 +1047,8 @@
             const outPixels = imgDataDesen.data;
 
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-            const dstPoints = puncteCoala.map(p => [p.x, p.y]); // [ [0,0], [489,0], [489,680], [0,680] ]
+            const dstPoints = puncteCoala.map(p => [p.x, p.y]); 
 
-            // Homografia corectează perspectiva, calculează marginile decupajului și scalează la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];
@@ -1027,11 +1065,10 @@
                     const x = (h00 * u + h01 * v + h02) / denom;
                     const y = (h10 * u + h11 * v + h12) / denom;
 
-                    // Procesăm sub-pixelii doar dacă sunt în interiorul limitelor de siguranță ale imaginii sursă
                     if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
                         if (isPointInQuad(x, y, srcPoints)) {
                             
-                            // --- INTERPOLARE BILINIARĂ (Geometric Netezire / Anti-Aliasing) ---
+                            // --- INTERPOLARE BILINIARĂ ---
                             const x0 = Math.floor(x);
                             const y0 = Math.floor(y);
                             const x1 = x0 + 1;
@@ -1045,7 +1082,6 @@
                             const idx01 = (y1 * srcW + x0) * 4;
                             const idx11 = (y1 * srcW + x1) * 4;
 
-                            // Interpolare biliniară pe culori pentru a elimina marginile colțuroase (pixelate)
                             const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
                                       dx * (1 - dy) * srcPixels[idx10] +
                                       (1 - dx) * dy * srcPixels[idx01] +
@@ -1061,11 +1097,9 @@
                                       (1 - dx) * dy * srcPixels[idx01 + 2] +
                                       dx * dy * srcPixels[idx11 + 2];
 
-                            // Indicatori cromatici
                             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
                             const diferentaAlbastru = b - Math.max(r, g);
 
-                            // Scorul de prezență a cernelei (hibrid: luma scăzută sau nuanță puternică de albastru)
                             let scorCerneala = 0;
                             
                             if (luma < pragSensibilitate) {
@@ -1076,12 +1110,11 @@
                                 scorCerneala = Math.max(scorCerneala, (diferentaAlbastru * 3) + (160 - luma));
                             }
 
-                            // --- FILTRUL SMOOTHSTEP (Pentru treceri fine pe marginile liniilor fine de pix) ---
+                            // --- FILTRUL SMOOTHSTEP (Anti-Aliasing) ---
                             let alpha = 0;
                             if (scorCerneala > 10) {
-                                // Calculăm raportul de trecere gradual între pragul minim (10) și maxim de intensitate (55)
                                 const t = Math.min(1.0, Math.max(0.0, (scorCerneala - 10) / 45));
-                                const smoothT = t * t * (3.0 - 2.0 * t); // Formula matematică S-Curve Smoothstep
+                                const smoothT = t * t * (3.0 - 2.0 * t); 
                                 alpha = Math.round(smoothT * 255);
                             }
 
@@ -1100,12 +1133,9 @@
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
-            // Acest lucru garantează o fuziune realistă a cernelii albastre în structura hârtiei de dedesubt
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 
-            // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
             butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Albastru";
@@ -1115,6 +1145,7 @@
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
                 mBtnStart.style.display = 'none';
+                mAdjustmentContainer.style.display = 'none'; // Ascundem panoul de ajustare
                 
                 const mCanvas = document.getElementById('mCanvasRezultat');
                 mCanvas.width = targetW;
@@ -1128,33 +1159,38 @@
     // --- CONTROL WORKFLOW MOBIL ---
     mBtnStart.addEventListener('click', () => {
         mBtnStart.style.display = 'none';
-        btnStartCamera.click(); // Declanșează fluxul nativ de cameră
+        btnStartCamera.click(); 
+    });
+
+    // Acțiunea butonului „Procesează” de pe mobil
+    mBtnProcess.addEventListener('click', () => {
+        mAdjustmentContainer.style.display = 'none';
+        executaTransfer();
     });
 
     mBtnRestart.addEventListener('click', () => {
         mResultContainer.style.display = 'none';
+        mAdjustmentContainer.style.display = 'none';
         mBtnStart.style.display = 'block';
         autoTransferRulat = false; 
     });
 
     // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ ---
     window.addEventListener('DOMContentLoaded', () => {
-        // 1. Încărcare automată Cartea 1
         const implicitSursa = new Image();
         implicitSursa.onload = () => handleIncarcareImagineSursa(implicitSursa);
         implicitSursa.onerror = () => {
-            boxDesen.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca "as-01.png" automat. Folosiți camera sau încărcarea manuală.</span>';
+            boxDesen.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca \"as-01.png\" automat.</span>';
         };
         implicitSursa.src = 'as-01.png';
 
-        // 2. Încărcare automată Cartea 2
         const implicitDest = new Image();
         implicitDest.onload = () => handleIncarcareImagineDestinatie(implicitDest);
         implicitDest.onerror = () => {
             const fallbackDest = new Image();
             fallbackDest.onload = () => handleIncarcareImagineDestinatie(fallbackDest);
             fallbackDest.onerror = () => {
-                boxCoala.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca "as-02.png" automat. Folosiți încărcarea manuală.</span>';
+                boxCoala.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca \"as-02.png\" automat.</span>';
             };
             fallbackDest.src = 'as-02.ong';
         };

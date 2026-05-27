@@ -240,7 +240,7 @@
 
     <div class="slider-box">
         <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">15</span></label>
-        <input type="range" id="sensibilitate" min="1" max="120" value="15" style="width: 100%;">
+        <input type="range" id="sensibilitate" min="0" max="120" value="15" style="width: 100%;">
     </div>
 
     <div>
@@ -290,7 +290,7 @@
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
-            <input type="range" id="mSensibilitate" min="1" max="120" value="15" style="width: 100%;">
+            <input type="range" id="mSensibilitate" min="0" max="120" value="15" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -648,7 +648,6 @@
         instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Se inițializează...</span>";
 
         try {
-            // Solicităm rezoluția maximă (4K) pentru detalii maxime la nivel de pixel
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "environment", 
@@ -1002,7 +1001,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Extracție directă cu Adaptive Smoothstep și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Extragere directă cu Adaptive Smoothstep, Calibrări de Contrast și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1052,9 +1051,19 @@
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
             
-            // Compresia dinamică a intervalului de opacitate (zona de tranziție)
-            // Când pragul este foarte mic (ex: 2), tranziția se restrânge la doar 3 unități, forțând pixelii fini să fie solizi și clari
+            // Compresia automată și dinamică a curbei S-Curve pentru detalii fine solide la valori mici (ex: 1, 2)
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
+
+            // Factorul de curbă de contrast (Hermite S-curve / Contrast Curves) pentru intensificare culori
+            // gFactor > 1 mărește adâncimea zonelor întunecate și curăță zonele luminoase (hârtia alb-gri)
+            const gContrast = 1.6;
+            function aplicaContrastPixeli(v) {
+                if (v < 0.5) {
+                    return Math.pow(2 * v, gContrast) / 2;
+                } else {
+                    return 1 - Math.pow(2 * (1 - v), gContrast) / 2;
+                }
+            }
 
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
@@ -1104,18 +1113,26 @@
                                 scorCerneala = diferentaRoz;
                             }
 
-                            // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep cu zona de tranziție dinamică
+                            // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep
                             let alpha = 0;
                             if (scorCerneala > pragSensibilitate) {
                                 const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
                                 const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
-                                alpha = Math.round(smoothT * 255);
+                                
+                                // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile șterse / fine de pe mobil
+                                alpha = Math.round(Math.pow(smoothT, 0.8) * 255);
                             }
 
                             if (alpha > 0) {
-                                outPixels[destIdx]     = Math.round(r);
-                                outPixels[destIdx + 1] = Math.round(g);
-                                outPixels[destIdx + 2] = Math.round(b);
+                                // Aplica calibrarea contrastului (S-Curve) pe canalele RGB
+                                // Aceasta face zonele închise (desenul) mai adânci/profunde și zonele luminoase mai luminate/curate
+                                const rNorm = r / 255;
+                                const gNorm = g / 255;
+                                const bNorm = b / 255;
+
+                                outPixels[destIdx]     = Math.round(aplicaContrastPixeli(rNorm) * 255);
+                                outPixels[destIdx + 1] = Math.round(aplicaContrastPixeli(gNorm) * 255);
+                                outPixels[destIdx + 2] = Math.round(aplicaContrastPixeli(bNorm) * 255);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
                                 outPixels[destIdx + 3] = 0;

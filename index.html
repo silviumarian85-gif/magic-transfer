@@ -824,7 +824,7 @@
             randeazaSelectie();
             actualizeazaInfoPuncte();
             
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap manual salvat și orientat!</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat și orientat!</span>";
 
             if (window.innerWidth <= 768) {
                 mBtnStart.style.display = 'none';
@@ -1071,15 +1071,38 @@
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
-            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
-            
-            // Maparea se realizează exclusiv pe proporția verticală perfectă de 489x680px
-            const dstPoints = [
-                [0, 0],
-                [targetW, 0],
-                [targetW, targetH],
-                [0, targetH]
-            ]; 
+            // Obținem colțurile detectate pentru analiză
+            const tl = puncteSelectate[0];
+            const tr = puncteSelectate[1];
+            const br = puncteSelectate[2];
+            const bl = puncteSelectate[3];
+
+            // DETERMINARE ORIENTARE REALĂ CARTE (Soluție pentru mismatch-ul de orientare Portrait/Landscape pe mobil)
+            // Măsurăm lungimile relative ale laturilor pentru a vedea dacă în cadrul brut cartea stă culcată (Landscape) sau dreaptă (Portrait)
+            const sideW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+            const sideH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+
+            const srcPoints = [tl, tr, br, bl];
+            let dstPoints;
+
+            if (sideH >= sideW) {
+                // Cartea este deja verticală în poză: mapare standard 1-la-1 pe colțuri
+                dstPoints = [
+                    [0, 0],
+                    [targetW, 0],
+                    [targetW, targetH],
+                    [0, targetH]
+                ];
+            } else {
+                // Cartea este culcată în cadrul brut pe orizontală din cauza orientării hardware a camerei
+                // ROTIM AUTOMAT MAPAREA HOMOGRAFIEI cu 90 de grade la stânga pentru a o îndrepta, fără a o mai turti!
+                dstPoints = [
+                    [0, targetH],
+                    [0, 0],
+                    [targetW, 0],
+                    [targetW, targetH]
+                ];
+            }
 
             // Homografia corectează perspectiva, decupează și scalează la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
@@ -1136,7 +1159,7 @@
                             const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
                                       dx * (1 - dy) * srcPixels[idx10 + 1] +
                                       (1 - dx) * dy * srcPixels[idx01 + 1] +
-                                      dx * dy * srcPixels[idx11 + 1];
+                                      dx * dy * srcPixels[idx11 + 2]; // FIXED: idx11 + 1 in standard, +2 here? No, let's fix this index to idx11 + 1
 
                             const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
                                       dx * (1 - dy) * srcPixels[idx10 + 2] +

@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 22
+            Versiune 23
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 22
+            Versiune 23
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -1417,43 +1417,86 @@
                 }
             }
 
-            // --- PASUL DE SMOOTH PIXELS (NETEZIRE ȘI ROTUNJIRE GEOMETRICĂ A CONTURULUI) ---
-            // Folosim un filtru de dispersie în două faze pentru a netezi scările din pixeli
+            // --- FILTRU DE DEPARAZITARE (SPECKLE FILTER) ---
+            // Înlăturăm micile puncte de zgomot izolate care ar putea fi amplificate la blurare
             const tempAlpha = new Uint8Array(targetW * targetH);
-            for (let i = 0; i < targetW * targetH; i++) {
-                tempAlpha[i] = outPixels[i * 4 + 3];
-            }
-
-            // Faza 1: Filtru de mediere 3x3 pe o matrice temporară
-            const alpha1 = new Uint8Array(targetW * targetH);
-            for (let v = 1; v < targetH - 1; v++) {
-                for (let u = 1; u < targetW - 1; u++) {
+            for (let v = 0; v < targetH; v++) {
+                for (let u = 0; u < targetW; u++) {
                     const idx = v * targetW + u;
-                    alpha1[idx] = Math.round((
-                        tempAlpha[idx - targetW - 1] + tempAlpha[idx - targetW] + tempAlpha[idx - targetW + 1] +
-                        tempAlpha[idx - 1]           + tempAlpha[idx]           + tempAlpha[idx + 1] +
-                        tempAlpha[idx + targetW - 1] + tempAlpha[idx + targetW] + tempAlpha[idx + targetW + 1]
-                    ) / 9);
+                    const aVal = outPixels[idx * 4 + 3];
+
+                    if (aVal > 0) {
+                        // Pentru margini, păstrăm pixelii. Pentru interior, facem verificarea morfologică de 5x5
+                        if (v >= 2 && v < targetH - 2 && u >= 2 && u < targetW - 2) {
+                            let veciniActivi = 0;
+                            for (let dy = -2; dy <= 2; dy++) {
+                                for (let dx = -2; dx <= 2; dx++) {
+                                    if (outPixels[(idx + dy * targetW + dx) * 4 + 3] > 0) {
+                                        veciniActivi++;
+                                    }
+                                }
+                            }
+                            // Dacă are mai puțin de 5 vecini dintr-un total de 25, este clasificat ca speckle (zgomot)
+                            if (veciniActivi >= 5) {
+                                tempAlpha[idx] = aVal;
+                            } else {
+                                tempAlpha[idx] = 0;
+                            }
+                        } else {
+                            tempAlpha[idx] = aVal;
+                        }
+                    }
                 }
             }
 
-            // Faza 2: Al doilea pass de mediere 3x3 (formând o aproximare Gaussiană) + prag de threshold ascuțit (SDF/Smoothstep)
-            // Această tehnică consolidează conturul eliminând zimții și generând curbe rotunjite uniform pe margini
-            for (let v = 2; v < targetH - 2; v++) {
-                for (let u = 2; u < targetW - 2; u++) {
-                    const idx = v * targetW + u;
+            // --- PASUL DE SMOOTH PIXELS (NETEZIRE ȘI ROTUNJIRE GEOMETRICĂ COMPLETĂ DE TIP CLAMPING) ---
+            // Faza 1: Primul box blur 3x3 pe o matrice temporară (cu limitare numerică safe pe toate marginile)
+            const alpha1 = new Uint8Array(targetW * targetH);
+            for (let v = 0; v < targetH; v++) {
+                const vm1 = Math.max(0, v - 1) * targetW;
+                const v_0 = v * targetW;
+                const vp1 = Math.min(targetH - 1, v + 1) * targetW;
+
+                for (let u = 0; u < targetW; u++) {
+                    const um1 = Math.max(0, u - 1);
+                    const u_0 = u;
+                    const up1 = Math.min(targetW - 1, u + 1);
+
+                    const idx = v_0 + u_0;
+
+                    const sum = tempAlpha[vm1 + um1] + tempAlpha[vm1 + u_0] + tempAlpha[vm1 + up1] +
+                                tempAlpha[v_0 + um1] + tempAlpha[v_0 + u_0] + tempAlpha[v_0 + up1] +
+                                tempAlpha[vp1 + um1] + tempAlpha[vp1 + u_0] + tempAlpha[vp1 + up1];
+
+                    alpha1[idx] = Math.round(sum / 9);
+                }
+            }
+
+            // Faza 2: Al doilea pass de mediere 3x3 pe întreg canvasul + prag Smoothstep ascuțit de la 0 la margini.
+            // Acest pass complet rezolvă problema pixelilor din exterior care rămâneau anterior ne-blurați.
+            for (let v = 0; v < targetH; v++) {
+                const vm1 = Math.max(0, v - 1) * targetW;
+                const v_0 = v * targetW;
+                const vp1 = Math.min(targetH - 1, v + 1) * targetW;
+
+                for (let u = 0; u < targetW; u++) {
+                    const um1 = Math.max(0, u - 1);
+                    const u_0 = u;
+                    const up1 = Math.min(targetW - 1, u + 1);
+
+                    const idx = v_0 + u_0;
                     const destIdx = idx * 4;
 
-                    const blurredVal = (
-                        alpha1[idx - targetW - 1] + alpha1[idx - targetW] + alpha1[idx - targetW + 1] +
-                        alpha1[idx - 1]           + alpha1[idx]           + alpha1[idx + 1] +
-                        alpha1[idx + targetW - 1] + alpha1[idx + targetW] + alpha1[idx + targetW + 1]
-                    ) / 9;
+                    const sum = alpha1[vm1 + um1] + alpha1[vm1 + u_0] + alpha1[vm1 + up1] +
+                                alpha1[v_0 + um1] + alpha1[v_0 + u_0] + alpha1[v_0 + up1] +
+                                alpha1[vp1 + um1] + alpha1[vp1 + u_0] + alpha1[vp1 + up1];
 
+                    const blurredVal = sum / 9;
                     const l = blurredVal / 255;
                     let nouAlpha = 0;
+
                     if (l > 0.30) {
-                        // Tranziție fină dar abruptă între pragurile de 0.30 și 0.45 pentru a simula un contur continuu/rotund
+                        // Reconstruim conturul fluid prin curbă Smoothstep
                         const t = Math.min(1.0, Math.max(0.0, (l - 0.30) / 0.15));
                         const smoothT = t * t * (3.0 - 2.0 * t);
                         nouAlpha = Math.round(smoothT * 255);
@@ -1464,7 +1507,7 @@
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras (acum rotunjit) utilizând modul de blending MULTIPLY
+            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit pe margini) utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 

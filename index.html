@@ -239,8 +239,8 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">35</span></label>
-        <input type="range" id="sensibilitate" min="10" max="120" value="35" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">15</span></label>
+        <input type="range" id="sensibilitate" min="2" max="120" value="15" style="width: 100%;">
     </div>
 
     <div>
@@ -289,8 +289,8 @@
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">35</span></label>
-            <input type="range" id="mSensibilitate" min="10" max="120" value="35" style="width: 100%;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
+            <input type="range" id="mSensibilitate" min="2" max="120" value="15" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -1050,7 +1050,9 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
-            const zonaTranzitie = 15; 
+
+            // Reducem intervalul de tranziție la 20 pentru o conturare mai rapidă și fermă a liniilor când pragul este mic
+            const zonaTranzitie = 20; 
 
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
@@ -1096,7 +1098,7 @@
                             const diferentaRoz = (r - g) + (b - g);
 
                             let scorCerneala = 0;
-                            // Folosim limita de siguranță coborâtă la r > 40 pentru a detecta markerul chiar și pe o foaie gri umbrită
+                            // Folosim limita de siguranță coborâtă la r > 40 pentru a detecta corect markerul pe o foaie gri umbrită
                             if (r > 40 && diferentaRoz >= pragSensibilitate) {
                                 scorCerneala = diferentaRoz;
                             }
@@ -1104,7 +1106,7 @@
                             // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep (smooth)
                             let alpha = 0;
                             if (scorCerneala > pragSensibilitate) {
-                                const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / 35));
+                                const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
                                 const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
                                 alpha = Math.round(smoothT * 255);
                             }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru/Negru</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz (Marker)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -222,7 +222,7 @@
 
 <!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
-    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru/Negru (Pix/Marker)</h2>
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz (Marker)</h2>
     
     <div class="upload-section">
         <div>
@@ -239,12 +239,12 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Albastru/Negru: <span id="valSensibilitate">115</span></label>
-        <input type="range" id="sensibilitate" min="30" max="170" value="115" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">55</span></label>
+        <input type="range" id="sensibilitate" min="15" max="140" value="55" style="width: 100%;">
     </div>
 
     <div>
-        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul</button>
+        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Roz</button>
     </div>
 
     <div class="workspace">
@@ -271,7 +271,7 @@
         </div>
 
         <div class="panel">
-            <h3>3. Rezultat Aliniat (Doar Desenul Albastru/Negru)</h3>
+            <h3>3. Rezultat Aliniat (Doar Desenul Roz)</h3>
             <div class="preview-box" id="boxRezultat">
                 <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Aliniază și Transferă"</span>
                 <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
@@ -289,8 +289,8 @@
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare: <span id="mValSensibilitate">115</span></label>
-            <input type="range" id="mSensibilitate" min="30" max="170" value="115" style="width: 100%;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">55</span></label>
+            <input type="range" id="mSensibilitate" min="15" max="140" value="55" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -378,7 +378,6 @@
 
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
-    // Sincronizare glisoare (Desktop <-> Mobil)
     mSensibilitate.addEventListener('input', () => {
         mValSensibilitate.textContent = mSensibilitate.value;
         sliderSensibilitate.value = mSensibilitate.value;
@@ -781,9 +780,9 @@
         opresteCameraDacaEsteActiva();
         cameraInterface.style.display = 'none';
 
-        const imagineSnap = new Image();
-        imagineSnap.onload = () => {
-            imgDesen = imagineSnap;
+        const snapImg = new Image();
+        snapImg.onload = () => {
+            imgDesen = snapImg;
             puncteSelectate = colțuriSalvate; 
             
             boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
@@ -800,7 +799,6 @@
                 mResultContainer.style.display = 'none';
                 mAdjustmentContainer.style.display = 'flex';
                 
-                // Desenăm imaginea de prevualizare pentru a regla glisorul înainte de extragere
                 const mCanvasPreview = document.getElementById('mCanvasPreview');
                 mCanvasPreview.width = 489;
                 mCanvasPreview.height = 680;
@@ -811,7 +809,7 @@
                 executaTransfer();
             }
         };
-        imagineSnap.src = snapCanvas.toDataURL('image/png');
+        snapImg.src = snapCanvas.toDataURL('image/png');
     });
 
     btnCancelCamera.addEventListener('click', () => {

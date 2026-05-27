@@ -240,7 +240,7 @@
 
     <div class="slider-box">
         <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">15</span></label>
-        <input type="range" id="sensibilitate" min="0" max="120" value="15" style="width: 100%;">
+        <input type="range" id="sensibilitate" min="1" max="120" value="15" style="width: 100%;">
     </div>
 
     <div>
@@ -290,7 +290,7 @@
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
-            <input type="range" id="mSensibilitate" min="0" max="120" value="15" style="width: 100%;">
+            <input type="range" id="mSensibilitate" min="1" max="120" value="15" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -384,7 +384,7 @@
         valSensibilitate.textContent = mSensibilitate.value;
     });
 
-    // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU CONNECTED COMPONENT LABELING ---
+    // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU METODA GEOMETRICĂ A DISTANȚEI MAXIME DE CENTROID ---
     function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -537,31 +537,49 @@
             return { puncte: defaultPoints(), succes: false };
         }
         
-        let minSum = Infinity, maxSum = -Infinity;
-        let minDiff = Infinity, maxDiff = -Infinity;
-        
-        let tl = puncteCard[0], tr = puncteCard[0], br = puncteCard[0], bl = puncteCard[0];
-        
-        for (let i = 0; i < puncteCard.length; i++) {
+        // --- METODA GEOMETRICĂ: CALCUL DISTANȚĂ MAXIMĂ FAȚĂ DE CENTROID ---
+        // Previne alunecarea punctelor de colț pe marginile plate la fotografierea de sus (rotație 0)
+        let sumX = 0, sumY = 0;
+        const count = puncteCard.length;
+        for (let i = 0; i < count; i++) {
+            sumX += puncteCard[i].x;
+            sumY += puncteCard[i].y;
+        }
+        const xc = sumX / count;
+        const yc = sumY / count;
+
+        let maxDistTL = -1, maxDistTR = -1, maxDistBR = -1, maxDistBL = -1;
+        let tl = defaultPoints()[0];
+        let tr = defaultPoints()[1];
+        let br = defaultPoints()[2];
+        let bl = defaultPoints()[3];
+
+        for (let i = 0; i < count; i++) {
             const p = puncteCard[i];
-            const sum = p.x + p.y;
-            const diff = p.x - p.y;
-            
-            if (sum < minSum) {
-                minSum = sum;
-                tl = p;
-            }
-            if (sum > maxSum) {
-                maxSum = sum;
-                br = p;
-            }
-            if (diff > maxDiff) {
-                maxDiff = diff;
-                tr = p;
-            }
-            if (diff < minDiff) {
-                minDiff = diff;
-                bl = p;
+            const dx = p.x - xc;
+            const dy = p.y - yc;
+            const distSq = dx * dx + dy * dy;
+
+            if (p.x < xc && p.y < yc) { // Cadranul Stânga-Sus
+                if (distSq > maxDistTL) {
+                    maxDistTL = distSq;
+                    tl = p;
+                }
+            } else if (p.x >= xc && p.y < yc) { // Cadranul Dreapta-Sus
+                if (distSq > maxDistTR) {
+                    maxDistTR = distSq;
+                    tr = p;
+                }
+            } else if (p.x >= xc && p.y >= yc) { // Cadranul Dreapta-Jos
+                if (distSq > maxDistBR) {
+                    maxDistBR = distSq;
+                    br = p;
+                }
+            } else if (p.x < xc && p.y >= yc) { // Cadranul Stânga-Jos
+                if (distSq > maxDistBL) {
+                    maxDistBL = distSq;
+                    bl = p;
+                }
             }
         }
         
@@ -1001,7 +1019,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Extragere directă cu Adaptive Smoothstep, Calibrări de Contrast și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Extracție directă cu Adaptive Smoothstep, Calibrări de Contrast și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1051,11 +1069,10 @@
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
             
-            // Compresia automată și dinamică a curbei S-Curve pentru detalii fine solide la valori mici (ex: 1, 2)
+            // Compresia automată și dinamică a curbei S-Curve pentru detalii fine solide la valori mici (ex: 0, 1, 2)
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
             // Factorul de curbă de contrast (Hermite S-curve / Contrast Curves) pentru intensificare culori
-            // gFactor > 1 mărește adâncimea zonelor întunecate și curăță zonele luminoase (hârtia alb-gri)
             const gContrast = 1.6;
             function aplicaContrastPixeli(v) {
                 if (v < 0.5) {
@@ -1125,7 +1142,6 @@
 
                             if (alpha > 0) {
                                 // Aplica calibrarea contrastului (S-Curve) pe canalele RGB
-                                // Aceasta face zonele închise (desenul) mai adânci/profunde și zonele luminoase mai luminate/curate
                                 const rNorm = r / 255;
                                 const gNorm = g / 255;
                                 const bNorm = b / 255;

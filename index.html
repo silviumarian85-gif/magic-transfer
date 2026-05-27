@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru (Pix)</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Transfer prin Blending Multiply</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -18,9 +18,6 @@
         .btn-transfer:hover { background: #218838; }
         .btn-transfer:disabled { background: #a5d6a7; cursor: not-allowed; }
         input[type="file"] { display: none; }
-        
-        .slider-box { margin: 15px auto; max-width: 400px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
-        .slider-box label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 5px; }
         
         .workspace { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 25px; }
         .panel { background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
@@ -121,7 +118,7 @@
             }
             .m-canvas {
                 max-width: 90vw;
-                max-height: 50vh;
+                max-height: 70vh;
                 object-fit: contain;
                 border-radius: 12px;
                 box-shadow: 0 4px 25px rgba(0,0,0,0.6);
@@ -136,17 +133,6 @@
                 font-weight: bold;
                 border-radius: 8px;
                 cursor: pointer;
-            }
-            
-            /* Ajustare stiluri elemente temporare pe mobil */
-            .m-adjust-container {
-                display: none;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-                box-sizing: border-box;
             }
         }
 
@@ -223,7 +209,7 @@
 
 <!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
-    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru (Pix)</h2>
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Transfer prin Blending Multiply</h2>
     
     <div class="upload-section">
         <div>
@@ -239,13 +225,8 @@
         </div>
     </div>
 
-    <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Linii Subțiri (Pix Albastru/Negru): <span id="valSensibilitate">115</span></label>
-        <input type="range" id="sensibilitate" min="30" max="170" value="115" style="width: 100%;">
-    </div>
-
     <div>
-        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Albastru</button>
+        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul</button>
     </div>
 
     <div class="workspace">
@@ -272,7 +253,7 @@
         </div>
 
         <div class="panel">
-            <h3>3. Rezultat Aliniat (Doar Desenul Albastru)</h3>
+            <h3>3. Rezultat Aliniat (Transfer Direct prin Multiply)</h3>
             <div class="preview-box" id="boxRezultat">
                 <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Aliniază și Transferă"</span>
                 <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
@@ -285,16 +266,6 @@
 <div class="mobile-flow">
     <!-- Pasul 1: Doar butonul de pornire -->
     <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
-    
-    <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
-    <div id="mAdjustmentContainer" class="m-adjust-container">
-        <canvas id="mCanvasPreview" class="m-canvas"></canvas>
-        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">115</span></label>
-            <input type="range" id="mSensibilitate" min="30" max="170" value="115" style="width: 100%;">
-        </div>
-        <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
-    </div>
     
     <!-- Pasul 3: Doar rezultatul procesat -->
     <div id="mResultContainer" class="m-result-container">
@@ -322,8 +293,6 @@
     const incarcaCoalaGoala = document.getElementById('incarcaCoalaGoala');
     const butonTransfer = document.getElementById('butonTransfer');
     const btnStartCamera = document.getElementById('btnStartCamera');
-    const sliderSensibilitate = document.getElementById('sensibilitate');
-    const valSensibilitate = document.getElementById('valSensibilitate');
     const instructiuniPuncte = document.getElementById('instructiuniPuncte');
     const instructiuniPuncteCoala = document.getElementById('instructiuniPuncteCoala');
     const btnResetPuncte = document.getElementById('btnResetPuncte');
@@ -347,10 +316,6 @@
 
     // Elemente interfață mobilă
     const mBtnStart = document.getElementById('mBtnStart');
-    const mAdjustmentContainer = document.getElementById('mAdjustmentContainer');
-    const mSensibilitate = document.getElementById('mSensibilitate');
-    const mValSensibilitate = document.getElementById('mValSensibilitate');
-    const mBtnProcess = document.getElementById('mBtnProcess');
     const mResultContainer = document.getElementById('mResultContainer');
     const mBtnRestart = document.getElementById('mBtnRestart');
 
@@ -376,15 +341,6 @@
     let cameraActive = false;
     let videoStream = null;
     let trackerColturiSursa = [];
-
-    sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
-
-    // Sincronizare glisoare (Desktop <-> Mobil)
-    mSensibilitate.addEventListener('input', () => {
-        mValSensibilitate.textContent = mSensibilitate.value;
-        sliderSensibilitate.value = mSensibilitate.value;
-        valSensibilitate.textContent = mSensibilitate.value;
-    });
 
     // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU CONNECTED COMPONENT LABELING ---
     function detecteazaColturiCarte(imgOrCanvas) {
@@ -797,22 +753,10 @@
             
             instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap manual salvat!</span>";
 
-            // PE MOBIL: Redirecționăm către Pasul 2.5 (Ajustare Sensibilitate) în loc de procesare imediată
+            // Pe mobil, procesăm și afișăm direct rezultatul final
             if (window.innerWidth <= 768) {
-                mBtnStart.style.display = 'none';
-                mResultContainer.style.display = 'none';
-                mAdjustmentContainer.style.display = 'flex';
-                
-                const mCanvasPreview = document.getElementById('mCanvasPreview');
-                mCanvasPreview.width = snapCanvas.width;
-                mCanvasPreview.height = snapCanvas.height;
-                const mCtxPreview = mCanvasPreview.getContext('2d');
-                mCtxPreview.drawImage(snapCanvas, 0, 0);
-                
-                // Desenăm și chenarul de detecție pentru feedback vizual suplimentar
-                randeazaGeometriePatrulater(mCtxPreview, colțuriSalvate, imagineSnap, snapCanvas.width, snapCanvas.height, '#ff073a');
+                executaTransfer();
             } else {
-                // PE DESKTOP: Executăm direct procesarea ca înainte
                 executaTransfer();
             }
         };
@@ -825,7 +769,6 @@
         if (window.innerWidth <= 768) {
             mBtnStart.style.display = 'block';
             mResultContainer.style.display = 'none';
-            mAdjustmentContainer.style.display = 'none';
         } else {
             instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
         }
@@ -1008,7 +951,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Calculare margini, scalare la 489x680px, Dilatare progresivă și Blending Multiply cu Bilinear Anti-Aliasing) ---
+    // --- PROCESUL DE TRANSFER PRIN WARPING DIRECT & BLENDING MULTIPLY (Fără selecție de culori sau filtre) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1050,157 +993,88 @@
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
             const dstPoints = puncteCoala.map(p => [p.x, p.y]); 
 
-            // Homografia corectează perspectiva, calculează marginile decupajului și scalează la 489x680px
+            // Homografia corectează perspectiva, decupează și scalează tot interiorul cărții la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
-            const pragSensibilitate = parseInt(sliderSensibilitate.value);
-
-            // Grile temporare pentru calcule bidimensionale rapide pe pixelii finali
-            const rawScores = new Float32Array(targetW * targetH);
-            const tempR = new Uint8Array(targetW * targetH);
-            const tempG = new Uint8Array(targetW * targetH);
-            const tempB = new Uint8Array(targetW * targetH);
-
-            // --- PASUL 1: EXTRACȚIA BRUTĂ A CERNELEI (Citire biliniară din imaginea sursă) ---
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
-                    const idx = v * targetW + u;
-                    rawScores[idx] = 0;
+                    const destIdx = (v * targetW + u) * 4;
 
                     const denom = h20 * u + h21 * v + 1.0;
                     const x = (h00 * u + h01 * v + h02) / denom;
                     const y = (h10 * u + h11 * v + h12) / denom;
 
                     if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
-                        if (isPointInQuad(x, y, srcPoints)) {
-                            
-                            // --- INTERPOLARE BILINIARĂ ---
-                            const x0 = Math.floor(x);
-                            const y0 = Math.floor(y);
-                            const x1 = x0 + 1;
-                            const y1 = y0 + 1;
-                            
-                            const dx = x - x0;
-                            const dy = y - y0;
+                        
+                        // --- INTERPOLARE BILINIARĂ ---
+                        const x0 = Math.floor(x);
+                        const y0 = Math.floor(y);
+                        const x1 = x0 + 1;
+                        const y1 = y0 + 1;
+                        
+                        const dx = x - x0;
+                        const dy = y - y0;
 
-                            const idx00 = (y0 * srcW + x0) * 4;
-                            const idx10 = (y0 * srcW + x1) * 4;
-                            const idx01 = (y1 * srcW + x0) * 4;
-                            const idx11 = (y1 * srcW + x1) * 4;
+                        const idx00 = (y0 * srcW + x0) * 4;
+                        const idx10 = (y0 * srcW + x1) * 4;
+                        const idx01 = (y1 * srcW + x0) * 4;
+                        const idx11 = (y1 * srcW + x1) * 4;
 
-                            const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
-                                      dx * (1 - dy) * srcPixels[idx10] +
-                                      (1 - dx) * dy * srcPixels[idx01] +
-                                      dx * dy * srcPixels[idx11];
+                        const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
+                                  dx * (1 - dy) * srcPixels[idx10] +
+                                  (1 - dx) * dy * srcPixels[idx01] +
+                                  dx * dy * srcPixels[idx11];
 
-                            const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
-                                      dx * (1 - dy) * srcPixels[idx10 + 1] +
-                                      (1 - dx) * dy * srcPixels[idx01 + 1] +
-                                      dx * dy * srcPixels[idx11 + 1];
+                        const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
+                                  dx * (1 - dy) * srcPixels[idx10 + 1] +
+                                  (1 - dx) * dy * srcPixels[idx01 + 1] +
+                                  dx * dy * srcPixels[idx11 + 1];
 
-                            const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
-                                      dx * (1 - dy) * srcPixels[idx10 + 2] +
-                                      (1 - dx) * dy * srcPixels[idx01 + 2] +
-                                      dx * dy * srcPixels[idx11 + 2];
+                        const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
+                                  dx * (1 - dy) * srcPixels[idx10 + 2] +
+                                  (1 - dx) * dy * srcPixels[idx01 + 2] +
+                                  dx * dy * srcPixels[idx11 + 2];
 
-                            tempR[idx] = Math.round(r);
-                            tempG[idx] = Math.round(g);
-                            tempB[idx] = Math.round(b);
-
-                            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-                            const diferentaAlbastru = b - Math.max(r, g);
-
-                            let scorCerneala = 0;
-                            
-                            if (luma < pragSensibilitate) {
-                                scorCerneala = (pragSensibilitate - luma) / pragSensibilitate * 255;
-                            }
-                            
-                            if (diferentaAlbastru > 10 && luma < 160) {
-                                scorCerneala = Math.max(scorCerneala, (diferentaAlbastru * 3) + (160 - luma));
-                            }
-
-                            rawScores[idx] = scorCerneala;
-                        }
-                    }
-                }
-            }
-
-            // --- PASUL 2: DILATAREA ADAPTIVĂ & SMOOTHSTEP (Pentru a lărgi și rotunji liniile de pix) ---
-            for (let v = 0; v < targetH; v++) {
-                for (let u = 0; u < targetW; u++) {
-                    const destIdx = (v * targetW + u) * 4;
-                    
-                    let maxScor = 0;
-                    let bestU = u;
-                    let bestV = v;
-
-                    // Căutăm într-o vecinătate circulară de rază 2.5 (5x5 pixeli) pentru a dilata linia cu 2-3 pixeli
-                    for (let dv = -2; dv <= 2; dv++) {
-                        const nv = v + dv;
-                        if (nv < 0 || nv >= targetH) continue;
-                        for (let du = -2; du <= 2; du++) {
-                            const nu = u + du;
-                            if (nu < 0 || nu >= targetW) continue;
-
-                            const dist = Math.hypot(du, dv);
-                            if (dist > 2.5) continue; // Mască circulară
-
-                            const neighIdx = nv * targetW + nu;
-                            const val = rawScores[neighIdx];
-
-                            // Atenuare liniară pe bază de distanță pentru a pregăti gradientul de anti-aliasing
-                            const weighted = val * (1.0 - dist / 3.0);
-                            if (weighted > maxScor) {
-                                maxScor = weighted;
-                                bestU = nu;
-                                bestV = nv;
-                            }
-                        }
-                    }
-
-                    // Calculăm valoarea Alpha finală utilizând modelul matematic S-Curve Smoothstep
-                    let alpha = 0;
-                    if (maxScor > 10) {
-                        const t = Math.min(1.0, Math.max(0.0, (maxScor - 10) / 45));
-                        const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
-                        alpha = Math.round(smoothT * 255);
-                    }
-
-                    if (alpha > 0) {
-                        const bestIdx = bestV * targetW + bestU;
-                        // Păstrăm culoarea exactă de la sursa cea mai apropiată cu cerneală pentru a evita degradarea culorii
-                        outPixels[destIdx]     = tempR[bestIdx];
-                        outPixels[destIdx + 1] = tempG[bestIdx];
-                        outPixels[destIdx + 2] = tempB[bestIdx];
-                        outPixels[destIdx + 3] = alpha;
+                        // Deformăm și proiectăm întreaga imagine cu fundalul său alb, salvând culorile exacte
+                        outPixels[destIdx]     = Math.round(r);
+                        outPixels[destIdx + 1] = Math.round(g);
+                        outPixels[destIdx + 2] = Math.round(b);
+                        outPixels[destIdx + 3] = 255; // Preluăm complet imaginea, opacă
                     } else {
-                        outPixels[destIdx + 3] = 0;
+                        // În afara cărții mapate, lăsăm alb opac (255, 255, 255, 255).
+                        // Datorită proprietăților matematice ale modului multiply (1.0 * Culoare = Culoare), 
+                        // albul pur nu va altera deloc destinația.
+                        outPixels[destIdx]     = 255;
+                        outPixels[destIdx + 1] = 255;
+                        outPixels[destIdx + 2] = 255;
+                        outPixels[destIdx + 3] = 255;
                     }
                 }
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
+            // Pasul 2: Aplicăm întreaga carte deformată utilizând modul de blending MULTIPLY
+            // Datorită proprietăților înmulțirii matematice:
+            // - Albul (hârtia cărții 1) nu modifică imaginea de dedesubt (Imaginea 2).
+            // - Trăsăturile mai închise (cerneala pixului) întunecă nuanțele, realizând o fuziune ideală, organică.
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Albastru";
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Cartea";
             butonTransfer.disabled = false;
 
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
                 mBtnStart.style.display = 'none';
-                mAdjustmentContainer.style.display = 'none'; 
                 
                 const mCanvas = document.getElementById('mCanvasRezultat');
                 mCanvas.width = targetW;
@@ -1217,14 +1091,8 @@
         btnStartCamera.click(); 
     });
 
-    mBtnProcess.addEventListener('click', () => {
-        mAdjustmentContainer.style.display = 'none';
-        executaTransfer();
-    });
-
     mBtnRestart.addEventListener('click', () => {
         mResultContainer.style.display = 'none';
-        mAdjustmentContainer.style.display = 'none';
         mBtnStart.style.display = 'block';
         autoTransferRulat = false; 
     });

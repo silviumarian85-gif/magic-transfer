@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz (Marker)</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu (Degrade/Lumină)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -222,12 +222,16 @@
 
 <!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
-    <h2>
-        Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu
-        <span style="font-size: 13px; color: #888; font-weight: normal; font-family: monospace; display: block; margin-top: 5px;">Versiune Cod: v1.0.32</span>
-    </h2>
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu (Degrade/Lumină)</h2>
     
     <div class="upload-section">
+        <!-- Badge Iteratie pentru PC -->
+        <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 10px;">
+            <div style="font-size: 13px; font-weight: bold; color: #1a202c; background: #edf2f7; padding: 6px 16px; border-radius: 30px; border: 1px solid #cbd5e0; display: inline-flex; align-items: center; gap: 6px;">
+                🔄 Versiune Cod Server: <span style="color: #dd6b20;">Iterația #012 [Stabilizator Roșu Uniformizat & Retuș Expunere]</span>
+            </div>
+        </div>
+
         <div>
             <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
         </div>
@@ -242,8 +246,8 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roșu: <span id="valSensibilitate">15</span></label>
-        <input type="range" id="sensibilitate" min="0" max="120" value="15" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
+        <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
     </div>
 
     <div>
@@ -285,16 +289,21 @@
 
 <!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
 <div class="mobile-flow">
-    <!-- Pasul 1: Doar butonul de pornire și indicatorul de versiune -->
-    <div style="font-size: 14px; color: #aaa; margin-bottom: 20px; font-family: monospace; font-weight: bold; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Versiune Cod: v1.0.32</div>
+    <!-- Badge Iteratie pentru Mobil -->
+    <div style="font-size: 13px; font-weight: bold; color: #fff; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 25px; text-align: center;">
+        🔄 Versiune Cod Server:<br>
+        <span style="color: #fbd38d;">Iterația #012 [Stabilizator Roșu Uniformizat & Retuș Expunere]</span>
+    </div>
+
+    <!-- Pasul 1: Doar butonul de pornire -->
     <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
     
     <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
-            <input type="range" id="mSensibilitate" min="0" max="120" value="15" style="width: 100%;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">20</span></label>
+            <input type="range" id="mSensibilitate" min="0" max="150" value="20" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -388,7 +397,7 @@
         valSensibilitate.textContent = mSensibilitate.value;
     });
 
-    // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU METODA GEOMETRICĂ A DISTANȚEI MAXIME DE CENTROID ---
+    // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU METODA GEOMETRICĂ FILTRATĂ ȘI STABILĂ ---
     function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -541,7 +550,7 @@
             return { puncte: defaultPoints(), succes: false };
         }
         
-        // --- METODA GEOMETRICĂ: CALCUL DISTANȚĂ MAXIMĂ FAȚĂ DE CENTROID ---
+        // --- METODĂ STATISTICĂ ROBUSTĂ FILTRATĂ PENTRU DETECȚIE COLȚURI ---
         let sumX = 0, sumY = 0;
         const count = puncteCard.length;
         for (let i = 0; i < count; i++) {
@@ -551,11 +560,10 @@
         const xc = sumX / count;
         const yc = sumY / count;
 
-        let maxDistTL = -1, maxDistTR = -1, maxDistBR = -1, maxDistBL = -1;
-        let tl = defaultPoints()[0];
-        let tr = defaultPoints()[1];
-        let br = defaultPoints()[2];
-        let bl = defaultPoints()[3];
+        const ptsTL = [];
+        const ptsTR = [];
+        const ptsBR = [];
+        const ptsBL = [];
 
         for (let i = 0; i < count; i++) {
             const p = puncteCard[i];
@@ -563,28 +571,39 @@
             const dy = p.y - yc;
             const distSq = dx * dx + dy * dy;
 
-            if (p.x < xc && p.y < yc) { // Cadranul Stânga-Sus
-                if (distSq > maxDistTL) {
-                    maxDistTL = distSq;
-                    tl = p;
-                }
-            } else if (p.x >= xc && p.y < yc) { // Cadranul Dreapta-Sus
-                if (distSq > maxDistTR) {
-                    maxDistTR = distSq;
-                    tr = p;
-                }
-            } else if (p.x >= xc && p.y >= yc) { // Cadranul Dreapta-Jos
-                if (distSq > maxDistBR) {
-                    maxDistBR = distSq;
-                    br = p;
-                }
-            } else if (p.x < xc && p.y >= yc) { // Cadranul Stânga-Jos
-                if (distSq > maxDistBL) {
-                    maxDistBL = distSq;
-                    bl = p;
-                }
+            if (p.x < xc && p.y < yc) {
+                ptsTL.push({ p, d: distSq });
+            } else if (p.x >= xc && p.y < yc) {
+                ptsTR.push({ p, d: distSq });
+            } else if (p.x >= xc && p.y >= yc) {
+                ptsBR.push({ p, d: distSq });
+            } else if (p.x < xc && p.y >= yc) {
+                ptsBL.push({ p, d: distSq });
             }
         }
+
+        // Filtrează primele procente extreme (zgomotul) și realizează o medie stabilă
+        const obtineColtRobust = (pts, defaultPt) => {
+            if (pts.length < 5) return defaultPt;
+            pts.sort((a, b) => b.d - a.d);
+            
+            const skip = Math.max(3, Math.floor(pts.length * 0.01));
+            const take = 5;
+            
+            let sX = 0, sY = 0, actualTake = 0;
+            for (let i = skip; i < skip + take && i < pts.length; i++) {
+                sX += pts[i].p.x;
+                sY += pts[i].p.y;
+                actualTake++;
+            }
+            if (actualTake === 0) return defaultPt;
+            return { x: sX / actualTake, y: sY / actualTake };
+        };
+
+        const tl = obtineColtRobust(ptsTL, defaultPoints()[0]);
+        const tr = obtineColtRobust(ptsTR, defaultPoints()[1]);
+        const br = obtineColtRobust(ptsBR, defaultPoints()[2]);
+        const bl = obtineColtRobust(ptsBL, defaultPoints()[3]);
         
         const scaleFactor = 1 / scale;
         return {
@@ -661,7 +680,7 @@
         img.src = urlCoalaGoala;
     });
 
-    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE CU REZOLUȚIE MAXIMĂ NATIVĂ ---
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE ---
     btnStartCamera.addEventListener('click', async () => {
         opresteCameraDacaEsteActiva();
         
@@ -787,19 +806,14 @@
         const vw = videoPreview.videoWidth;
         const vh = videoPreview.videoHeight;
 
-        // Creăm canvas-ul de bază pentru captură
         const snapCanvas = document.createElement('canvas');
-        
-        // Verificăm dacă suntem pe mobil (Portrait viewport) dar fluxul camerei este culcat (Landscape)
         const trebuieRotit = (window.innerWidth <= 768 && vw > vh);
 
         if (trebuieRotit) {
-            // Rotim fizic imaginea pentru a o salva direct în orientare Portret stabilă
-            snapCanvas.width = vh;  // Lățimea devine înălțimea veche
-            snapCanvas.height = vw; // Înălțimea devine lățimea veche
+            snapCanvas.width = vh;  
+            snapCanvas.height = vw; 
             const snapCtx = snapCanvas.getContext('2d');
             
-            // Rotim canvas-ul cu 90 de grade în sensul acelor de ceasornic
             snapCtx.translate(vh / 2, vw / 2);
             snapCtx.rotate(90 * Math.PI / 180);
             snapCtx.drawImage(videoPreview, -vw / 2, -vh / 2, vw, vh);
@@ -817,7 +831,6 @@
         snapImg.onload = () => {
             imgDesen = snapImg;
             
-            // Calculăm colțurile direct pe imaginea STATICA deja orientată corect!
             const rezFinal = detecteazaColturiCarte(snapImg);
             puncteSelectate = rezFinal.puncte; 
             
@@ -836,11 +849,23 @@
                 mAdjustmentContainer.style.display = 'flex';
                 
                 const mCanvasPreview = document.getElementById('mCanvasPreview');
-                mCanvasPreview.width = 489;
-                mCanvasPreview.height = 680;
-                const mCtxPreview = mCanvasPreview.getContext('2d');
+                const aspect = snapImg.naturalWidth / snapImg.naturalHeight;
                 
-                mCtxPreview.drawImage(snapImg, 0, 0, 489, 680);
+                // Mărim canvasul de previzualizare păstrând aspectul nativ al imaginii, fără a-l mai turti
+                const maxDim = 800;
+                if (snapImg.naturalWidth > snapImg.naturalHeight) {
+                    mCanvasPreview.width = maxDim;
+                    mCanvasPreview.height = Math.round(maxDim / aspect);
+                } else {
+                    mCanvasPreview.height = maxDim;
+                    mCanvasPreview.width = Math.round(maxDim * aspect);
+                }
+                
+                const mCtxPreview = mCanvasPreview.getContext('2d');
+                mCtxPreview.drawImage(snapImg, 0, 0, mCanvasPreview.width, mCanvasPreview.height);
+                
+                // Desenăm patrulaterul de detecție direct pe previzualizarea mobilă
+                randeazaGeometriePatrulater(mCtxPreview, puncteSelectate, snapImg, mCanvasPreview.width, mCanvasPreview.height, '#28a745');
             } else {
                 executaTransfer();
             }
@@ -1006,10 +1031,11 @@
         const A = [];
         const B = [];
         for (let i = 0; i < 4; i++) {
-            const x = src[i][0];
-            const y = src[i][1];
-            const u = dst[i][0];
-            const v = dst[i][1];
+            // Suportă în mod unificat structuri de date de tip Array [x, y] sau Obiect {x, y}
+            const x = Array.isArray(src[i]) ? src[i][0] : src[i].x;
+            const y = Array.isArray(src[i]) ? src[i][1] : src[i].y;
+            const u = Array.isArray(dst[i]) ? dst[i][0] : dst[i].x;
+            const v = Array.isArray(dst[i]) ? dst[i][1] : dst[i].y;
 
             A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
             B.push(u);
@@ -1028,8 +1054,11 @@
     function isPointInQuad(x, y, quad) {
         let inside = false;
         for (let i = 0, j = 3; i < 4; j = i++) {
-            const xi = quad[i][0], yi = quad[i][1];
-            const xj = quad[j][0], yj = quad[j][1];
+            const xi = (quad[i].x !== undefined) ? quad[i].x : quad[i][0];
+            const yi = (quad[i].y !== undefined) ? quad[i].y : quad[i][1];
+            const xj = (quad[j].x !== undefined) ? quad[j].x : quad[j][0];
+            const yj = (quad[j].y !== undefined) ? quad[j].y : quad[j][1];
+            
             const intersect = ((yi > y) !== (yj > y))
                 && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
@@ -1081,15 +1110,18 @@
             const br = puncteSelectate[2];
             const bl = puncteSelectate[3];
 
-            // DETERMINARE ORIENTARE REALĂ CARTE (Soluție pentru mismatch-ul de orientare Portrait/Landscape pe mobil)
-            const sideW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-            const sideH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+            // DETERMINARE ORIENTARE ȘI AXĂ STABILĂ
+            // Evaluăm distanțele medii pentru a preveni erorile de tip "bottom-to-top perspective compression"
+            const imgAspectPortrait = imgDesen.naturalHeight >= imgDesen.naturalWidth;
+            
+            const avgWidth = (Math.hypot(tr.x - tl.x, tr.y - tl.y) + Math.hypot(br.x - bl.x, br.y - bl.y)) / 2;
+            const avgHeight = (Math.hypot(bl.x - tl.x, bl.y - tl.y) + Math.hypot(br.x - tr.x, br.y - tr.y)) / 2;
 
             const srcPoints = [tl, tr, br, bl];
             let dstPoints;
 
-            if (sideH >= sideW) {
-                // Cartea este deja verticală în poză: mapare standard 1-la-1 pe colțuri
+            // Dacă imaginea este portret, sau înălțimea medie depășește lățimea, cartea este verticală (nu aplicăm rotație deformantă)
+            if (imgAspectPortrait || avgHeight >= avgWidth) {
                 dstPoints = [
                     [0, 0],
                     [targetW, 0],
@@ -1097,8 +1129,7 @@
                     [0, targetH]
                 ];
             } else {
-                // Cartea este culcată în cadrul brut pe orizontală din cauza orientării hardware a camerei
-                // ROTIM AUTOMAT MAPAREA HOMOGRAFIEI cu 90 de grade la stânga pentru a o îndrepta, fără a o mai turti!
+                // Imagine de tip Landscape unde cartea este fizic culcată
                 dstPoints = [
                     [0, targetH],
                     [0, 0],
@@ -1115,8 +1146,6 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
-            
-            // Compresia automată și dinamică a curbei S-Curve pentru detalii fine solide la valori mici (ex: 0, 1, 2)
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
             // Factorul de curbă de contrast (Hermite S-curve / Contrast Curves) pentru intensificare culori
@@ -1162,19 +1191,23 @@
                             const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
                                       dx * (1 - dy) * srcPixels[idx10 + 1] +
                                       (1 - dx) * dy * srcPixels[idx01 + 1] +
-                                      dx * dy * srcPixels[idx11 + 1];
+                                      dx * dy * srcPixels[idx11 + 1]; 
 
                             const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
                                       dx * (1 - dy) * srcPixels[idx10 + 2] +
                                       (1 - dx) * dy * srcPixels[idx01 + 2] +
                                       dx * dy * srcPixels[idx11 + 2];
 
-                            // Identificăm nuanța de Roșu (R este dominant față de maximul dintre G și B)
-                            const diferentaRosu = r - Math.max(g, b);
+                            // --- FILTRARE ROȘU ---
+                            const maxGB = Math.max(g, b);
+                            const diferentaRosu = r - maxGB;
 
                             let scorCerneala = 0;
-                            if (r > 40 && diferentaRosu >= pragSensibilitate) {
-                                scorCerneala = diferentaRosu;
+                            if (r > 35 && r > maxGB) {
+                                // Determinăm ponderea roșului în totalul pixelului
+                                const proportieRosu = r / (r + g + b + 1);
+                                // Ponderăm diferența absolută cu dominanța pentru a păstra detaliile fine
+                                scorCerneala = diferentaRosu * (proportieRosu * 2.5);
                             }
 
                             // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep
@@ -1183,20 +1216,40 @@
                                 const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
                                 const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
                                 
-                                // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile șterse / fine de pe mobil
+                                // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile șterse / fine
                                 alpha = Math.round(Math.pow(smoothT, 0.8) * 255);
                             }
 
                             if (alpha > 0) {
-                                // Aplica calibrarea contrastului (S-Curve) pe canalele RGB
-                                // Re-sintetizăm cromatic roșul închis sau spălăcit, forțând saturația maximă (G și B scăzute la 15%)
-                                const rNorm = Math.max(210, r) / 255;
-                                const gNorm = Math.round(g * 0.15) / 255;
-                                const bNorm = Math.round(b * 0.15) / 255;
+                                // Aplică contrastul original (S-Curve)
+                                const rNorm = r / 255;
+                                const gNorm = g / 255;
+                                const bNorm = b / 255;
 
-                                outPixels[destIdx]     = Math.round(aplicaContrastPixeli(rNorm) * 255);
-                                outPixels[destIdx + 1] = Math.round(aplicaContrastPixeli(gNorm) * 255);
-                                outPixels[destIdx + 2] = Math.round(aplicaContrastPixeli(bNorm) * 255);
+                                const origR = Math.round(aplicaContrastPixeli(rNorm) * 255);
+                                const origG = Math.round(aplicaContrastPixeli(gNorm) * 255);
+                                const origB = Math.round(aplicaContrastPixeli(bNorm) * 255);
+
+                                // --- SCRIPT DE RETUȘARE ȘI SATURARE POST-PROCESARE PENTRU ROȘU CONSTANT ---
+                                // Valoarea de referință a roșului fizic saturat (marker intens)
+                                const tintaR = 215;
+                                const tintaG = 15;
+                                const tintaB = 30;
+
+                                // Identificăm gradul de supraexpunere / reflexie (când G și B cresc în raport cu R din cauza luminii)
+                                const albire = Math.min(0.9, (g + b) / (2 * r + 1));
+
+                                // Ajustăm coeficientul de corecție dinamic: în zonele "spălăcite" corecția este masivă
+                                const factorCorectie = Math.max(0.4, albire); 
+
+                                // Re-saturăm pixelii: coborâm canalele G și B și menținem R la un prag înalt constant
+                                const nouR = Math.max(200, origR);
+                                const nouG = Math.round(origG * (1 - factorCorectie) + tintaG * factorCorectie);
+                                const nouB = Math.round(origB * (1 - factorCorectie) + tintaB * factorCorectie);
+
+                                outPixels[destIdx]     = nouR;
+                                outPixels[destIdx + 1] = nouG;
+                                outPixels[destIdx + 2] = nouB;
                                 outPixels[destIdx + 3] = alpha;
                             } else {
                                 outPixels[destIdx + 3] = 0;
@@ -1215,7 +1268,7 @@
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
             butonTransfer.disabled = false;
 
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)

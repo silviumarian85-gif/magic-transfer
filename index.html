@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz (Marker)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -222,7 +222,10 @@
 
 <!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
-    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu</h2>
+    <h2>
+        Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu
+        <span style="font-size: 13px; color: #888; font-weight: normal; font-family: monospace; display: block; margin-top: 5px;">Versiune Cod: v1.0.32</span>
+    </h2>
     
     <div class="upload-section">
         <div>
@@ -239,8 +242,8 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roșu (Filtru Desen): <span id="valSensibilitate">20</span></label>
-        <input type="range" id="sensibilitate" min="0" max="120" value="20" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Roșu: <span id="valSensibilitate">15</span></label>
+        <input type="range" id="sensibilitate" min="0" max="120" value="15" style="width: 100%;">
     </div>
 
     <div>
@@ -282,15 +285,16 @@
 
 <!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
 <div class="mobile-flow">
-    <!-- Pasul 1: Doar butonul de pornire -->
+    <!-- Pasul 1: Doar butonul de pornire și indicatorul de versiune -->
+    <div style="font-size: 14px; color: #aaa; margin-bottom: 20px; font-family: monospace; font-weight: bold; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Versiune Cod: v1.0.32</div>
     <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
     
     <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">20</span></label>
-            <input type="range" id="mSensibilitate" min="0" max="120" value="20" style="width: 100%;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">15</span></label>
+            <input type="range" id="mSensibilitate" min="0" max="120" value="15" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -731,8 +735,8 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(videoPreview, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            const resultado = detecteazaColturiCarte(canvasAnaliza);
-            trackerColturiSursa = resultado.puncte;
+            const rezultat = detecteazaColturiCarte(canvasAnaliza);
+            trackerColturiSursa = rezultat.puncte;
 
             const oCtx = cameraOverlay.getContext('2d');
             oCtx.clearRect(0, 0, cameraOverlay.width, cameraOverlay.height);
@@ -751,7 +755,7 @@
                 y: pt.y * scale + offsetY
             }));
 
-            oCtx.strokeStyle = resultado.succes ? '#28a745' : '#ff073a';
+            oCtx.strokeStyle = rezultat.succes ? '#28a745' : '#ff073a';
             oCtx.lineWidth = 4;
             oCtx.beginPath();
             oCtx.moveTo(mappedPts[0].x, mappedPts[0].y);
@@ -1078,7 +1082,6 @@
             const bl = puncteSelectate[3];
 
             // DETERMINARE ORIENTARE REALĂ CARTE (Soluție pentru mismatch-ul de orientare Portrait/Landscape pe mobil)
-            // Măsurăm lungimile relative ale laturilor pentru a vedea dacă în cadrul brut cartea stă culcată (Landscape) sau dreaptă (Portrait)
             const sideW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
             const sideH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
 
@@ -1212,7 +1215,7 @@
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
             butonTransfer.disabled = false;
 
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)

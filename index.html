@@ -968,7 +968,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Calculare margini, scalare la 489x680px și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Calculare margini, scalare la 489x680px și Blending Multiply cu Bilinear Anti-Aliasing) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -976,7 +976,6 @@
         butonTransfer.disabled = true;
 
         setTimeout(() => {
-            // Forțăm dimensiunea fixă a canvasului final la 489x680px
             const targetW = 489;
             const targetH = 680;
 
@@ -1011,7 +1010,7 @@
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
             const dstPoints = puncteCoala.map(p => [p.x, p.y]); // [ [0,0], [489,0], [489,680], [0,680] ]
 
-            // Homografia corectează perspectiva, calculează marginile decupajului și scalează perfect la 489x680px
+            // Homografia corectează perspectiva, calculează marginile decupajului și scalează la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];
@@ -1019,7 +1018,6 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
-            const zonaTranzitie = 15; 
 
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
@@ -1029,42 +1027,68 @@
                     const x = (h00 * u + h01 * v + h02) / denom;
                     const y = (h10 * u + h11 * v + h12) / denom;
 
-                    const x0 = Math.floor(x);
-                    const y0 = Math.floor(y);
-
-                    if (x0 >= 0 && x0 < srcW - 1 && y0 >= 0 && y0 < srcH - 1) {
+                    // Procesăm sub-pixelii doar dacă sunt în interiorul limitelor de siguranță ale imaginii sursă
+                    if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
                         if (isPointInQuad(x, y, srcPoints)) {
-                            const idx = (y0 * srcW + x0) * 4;
-                            const r = srcPixels[idx];
-                            const g = srcPixels[idx + 1];
-                            const b = srcPixels[idx + 2];
+                            
+                            // --- INTERPOLARE BILINIARĂ (Geometric Netezire / Anti-Aliasing) ---
+                            const x0 = Math.floor(x);
+                            const y0 = Math.floor(y);
+                            const x1 = x0 + 1;
+                            const y1 = y0 + 1;
+                            
+                            const dx = x - x0;
+                            const dy = y - y0;
 
-                            // Indicatori cromatici de mare sensibilitate
+                            const idx00 = (y0 * srcW + x0) * 4;
+                            const idx10 = (y0 * srcW + x1) * 4;
+                            const idx01 = (y1 * srcW + x0) * 4;
+                            const idx11 = (y1 * srcW + x1) * 4;
+
+                            // Interpolare biliniară pe culori pentru a elimina marginile colțuroase (pixelate)
+                            const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
+                                      dx * (1 - dy) * srcPixels[idx10] +
+                                      (1 - dx) * dy * srcPixels[idx01] +
+                                      dx * dy * srcPixels[idx11];
+
+                            const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
+                                      dx * (1 - dy) * srcPixels[idx10 + 1] +
+                                      (1 - dx) * dy * srcPixels[idx01 + 1] +
+                                      dx * dy * srcPixels[idx11 + 1];
+
+                            const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
+                                      dx * (1 - dy) * srcPixels[idx10 + 2] +
+                                      (1 - dx) * dy * srcPixels[idx01 + 2] +
+                                      dx * dy * srcPixels[idx11 + 2];
+
+                            // Indicatori cromatici
                             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
                             const diferentaAlbastru = b - Math.max(r, g);
 
-                            // Scorul de prezență a cernelei (hibrid: luma scăzută sau tentă puternică de albastru)
+                            // Scorul de prezență a cernelei (hibrid: luma scăzută sau nuanță puternică de albastru)
                             let scorCerneala = 0;
                             
                             if (luma < pragSensibilitate) {
-                                // Scor invers proporțional cu luminozitatea (mai închis = mai multă cerneală)
                                 scorCerneala = (pragSensibilitate - luma) / pragSensibilitate * 255;
                             }
                             
-                            // Suplimentăm scorul dacă există o nuanță clară de albastru (pentru linii foarte subțiri native)
                             if (diferentaAlbastru > 10 && luma < 160) {
                                 scorCerneala = Math.max(scorCerneala, (diferentaAlbastru * 3) + (160 - luma));
                             }
 
+                            // --- FILTRUL SMOOTHSTEP (Pentru treceri fine pe marginile liniilor fine de pix) ---
                             let alpha = 0;
-                            if (scorCerneala > 15) {
-                                alpha = Math.min(255, scorCerneala * 2.5); // Amplificare pentru trăsăturile subțiri
+                            if (scorCerneala > 10) {
+                                // Calculăm raportul de trecere gradual între pragul minim (10) și maxim de intensitate (55)
+                                const t = Math.min(1.0, Math.max(0.0, (scorCerneala - 10) / 45));
+                                const smoothT = t * t * (3.0 - 2.0 * t); // Formula matematică S-Curve Smoothstep
+                                alpha = Math.round(smoothT * 255);
                             }
 
                             if (alpha > 0) {
-                                outPixels[destIdx]     = r;
-                                outPixels[destIdx + 1] = g;
-                                outPixels[destIdx + 2] = b;
+                                outPixels[destIdx]     = Math.round(r);
+                                outPixels[destIdx + 1] = Math.round(g);
+                                outPixels[destIdx + 2] = Math.round(b);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
                                 outPixels[destIdx + 3] = 0;

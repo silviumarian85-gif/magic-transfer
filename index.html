@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 21
+            Versiune 22
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 21
+            Versiune 22
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -435,14 +435,12 @@
     let trackerColturiSursa = [];
 
     // --- AUTOMATIZARE REPROSPĂTARE (AUTO-REFRESH LIVE MONITORING) ---
-    // Script de monitorizare pentru a detecta dacă fișierul de pe server s-a actualizat
     let initialETag = null;
     let initialLastModified = null;
     let initialContentLength = null;
 
     async function verificaActualizareServer() {
         try {
-            // Folosim un cache-buster unic bazat pe timp pentru a asigura HEAD-ul live, nu cel stocat în cache
             const urlMonitorizare = window.location.pathname + '?nocache=' + Date.now();
             const response = await fetch(urlMonitorizare, { method: 'HEAD' });
             
@@ -452,7 +450,6 @@
             const currentLastModified = response.headers.get('Last-Modified');
             const currentContentLength = response.headers.get('Content-Length');
 
-            // La prima încărcare, salvăm starea curentă a fișierului
             if (initialETag === null && initialLastModified === null && initialContentLength === null) {
                 initialETag = currentETag;
                 initialLastModified = currentLastModified;
@@ -460,25 +457,21 @@
                 return;
             }
 
-            // Comparăm antetele primite pentru a identifica modificări ale codului pe server
             const etagSchimbat = currentETag && initialETag && (currentETag !== initialETag);
             const dataModificata = currentLastModified && initialLastModified && (currentLastModified !== initialLastModified);
             const lungimeModificata = currentContentLength && initialContentLength && (currentContentLength !== initialContentLength);
 
             if (etagSchimbat || dataModificata || lungimeModificata) {
-                console.log("Detectat update pe server. Reîncărcare automată a paginii...");
-                // Permitem o scurtă întârziere pentru stabilizarea scrierii pe server
+                console.log("Detectat update pe server. Reîncărcare automată...");
                 setTimeout(() => {
                     window.location.reload();
                 }, 500);
             }
         } catch (err) {
-            // Ignorăm erorile de rețea temporare în timpul transferurilor de fișiere
             console.log("Monitorizare server indisponibilă momentan:", err);
         }
     }
 
-    // Inițiem monitorizarea de fundal la fiecare 2 secunde
     setInterval(verificaActualizareServer, 2000);
 
     // --- SINCRONIZARE ELEMENTE UI ---
@@ -1310,6 +1303,11 @@
 
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
+            // Culorile de siguranță pentru propagare dinamică (previn apariția pixelilor negri pe margini - "fringe")
+            let lastValidR = 215;
+            let lastValidG = 15;
+            let lastValidB = 30;
+
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
                     const destIdx = (v * targetW + u) * 4;
@@ -1398,11 +1396,20 @@
                                     finalB = Math.max(0, Math.min(255, finalB));
                                 }
 
+                                lastValidR = finalR;
+                                lastValidG = finalG;
+                                lastValidB = finalB;
+
                                 outPixels[destIdx]     = Math.round(finalR);
                                 outPixels[destIdx + 1] = Math.round(finalG);
                                 outPixels[destIdx + 2] = Math.round(finalB);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
+                                // Umplem canalele RGB chiar și acolo unde alpha este inițial 0 cu ultima culoare validă.
+                                // Acest padding cromatic elimină "pixelii negri" de pe margine la momentul estompării.
+                                outPixels[destIdx]     = Math.round(lastValidR);
+                                outPixels[destIdx + 1] = Math.round(lastValidG);
+                                outPixels[destIdx + 2] = Math.round(lastValidB);
                                 outPixels[destIdx + 3] = 0;
                             }
                         }

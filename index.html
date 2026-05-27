@@ -1062,12 +1062,19 @@
                 }
             }
 
-            tempCtx.putImageData(imgDataDesen, 0, 0);
+      tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
-            // Acest lucru garantează o fuziune realistă a pigmenților roz în structura hârtiei de dedesubt
-            ctx.globalCompositeOperation = 'multiply';
+            // Se aplică blendingul 'darken'
+            ctx.globalCompositeOperation = 'darken';
             ctx.drawImage(tempCanvas, 0, 0);
+
+            // Se resetează compoziția la cea standard pentru desene viitoare
+            ctx.globalCompositeOperation = 'source-over';
+
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
+            butonTransfer.disabled = false;
+        }, 50);
+    }
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';

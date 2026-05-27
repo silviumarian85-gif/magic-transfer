@@ -591,7 +591,28 @@
         }
     }
 
-    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE (AUTO-FOCUS PE ECRAN) ---
+    // --- EVENIMENTE DE ÎNCĂRCARE MANUALĂ ---
+    incarcaDesen.addEventListener('change', (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        if (urlDesen) URL.revokeObjectURL(urlDesen);
+        
+        const img = new Image();
+        img.onload = () => handleIncarcareImagineSursa(img);
+        urlDesen = URL.createObjectURL(e.target.files[0]);
+        img.src = urlDesen;
+    });
+
+    incarcaCoalaGoala.addEventListener('change', (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        if (urlCoalaGoala) URL.revokeObjectURL(urlCoalaGoala);
+        
+        const img = new Image();
+        img.onload = () => handleIncarcareImagineDestinatie(img);
+        urlCoalaGoala = URL.createObjectURL(e.target.files[0]);
+        img.src = urlCoalaGoala;
+    });
+
+    // --- ACTIVARE ȘI CONTROL CAMERĂ SPATE CU REZOLUȚIE MAXIMĂ NATIVĂ ---
     btnStartCamera.addEventListener('click', async () => {
         opresteCameraDacaEsteActiva();
         
@@ -599,11 +620,12 @@
         instructiuniPuncte.innerHTML = "<span style='color: #007bff; font-weight: bold;'>🎥 Se inițializează...</span>";
 
         try {
+            // Solicităm parametrii corespunzători rezoluției 4K (3840x2160) pentru claritate maximă
             videoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: "environment", // Utilizează camera din spate
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    facingMode: "environment", 
+                    width: { ideal: 3840 },
+                    height: { ideal: 2160 }
                 },
                 audio: false
             });
@@ -1074,7 +1096,7 @@
         autoTransferRulat = false; 
     });
 
-    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ PE DISC ---
+    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ ---
     window.addEventListener('DOMContentLoaded', () => {
         // 1. Încărcare automată Cartea 1
         const implicitSursa = new Image();

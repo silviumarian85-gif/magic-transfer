@@ -121,7 +121,7 @@
             }
             .m-canvas {
                 max-width: 90vw;
-                max-height: 50vh;
+                max-height: 70vh;
                 object-fit: contain;
                 border-radius: 12px;
                 box-shadow: 0 4px 25px rgba(0,0,0,0.6);
@@ -136,16 +136,6 @@
                 font-weight: bold;
                 border-radius: 8px;
                 cursor: pointer;
-            }
-            
-            .m-adjust-container {
-                display: none;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-                box-sizing: border-box;
             }
         }
 
@@ -285,16 +275,6 @@
     <!-- Pasul 1: Doar butonul de pornire -->
     <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
     
-    <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
-    <div id="mAdjustmentContainer" class="m-adjust-container">
-        <canvas id="mCanvasPreview" class="m-canvas"></canvas>
-        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Marker): <span id="mValSensibilitate">55</span></label>
-            <input type="range" id="mSensibilitate" min="15" max="140" value="55" style="width: 100%;">
-        </div>
-        <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
-    </div>
-    
     <!-- Pasul 3: Doar rezultatul procesat -->
     <div id="mResultContainer" class="m-result-container">
         <canvas id="mCanvasRezultat" class="m-canvas"></canvas>
@@ -302,7 +282,7 @@
     </div>
 </div>
 
-<!-- CAPTURĂ CAMERA DIRECT PENTRU TOT ECRANUL -->
+<!-- CAPTURĂ CAMERA DIRECT PENTRU TOT ECRANUL (Folosit pe ambele platforme) -->
 <div id="cameraInterface" class="camera-overlay-container">
     <video id="videoPreview" class="camera-video" autoplay playsinline></video>
     <canvas id="cameraOverlay" class="camera-canvas"></canvas>
@@ -346,10 +326,6 @@
 
     // Elemente interfață mobilă
     const mBtnStart = document.getElementById('mBtnStart');
-    const mAdjustmentContainer = document.getElementById('mAdjustmentContainer');
-    const mSensibilitate = document.getElementById('mSensibilitate');
-    const mValSensibilitate = document.getElementById('mValSensibilitate');
-    const mBtnProcess = document.getElementById('mBtnProcess');
     const mResultContainer = document.getElementById('mResultContainer');
     const mBtnRestart = document.getElementById('mBtnRestart');
 
@@ -366,22 +342,17 @@
         { x: 489, y: 0 },
         { x: 489, y: 680 },
         { x: 0, y: 680 }
-    ]; 
+    ]; // Referință fixă pentru a doua carte la rezoluția 489x680px
 
     let isZoomed = false;
     let autoTransferRulat = false;
 
+    // Stări Cameră
     let cameraActive = false;
     let videoStream = null;
     let trackerColturiSursa = [];
 
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
-
-    mSensibilitate.addEventListener('input', () => {
-        mValSensibilitate.textContent = mSensibilitate.value;
-        sliderSensibilitate.value = mSensibilitate.value;
-        valSensibilitate.textContent = mSensibilitate.value;
-    });
 
     // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU CONNECTED COMPONENT LABELING ---
     function detecteazaColturiCarte(imgOrCanvas) {
@@ -758,29 +729,9 @@
         requestAnimationFrame(analizeazaCadruVideoLive);
     }
 
-    // Declansare manuala SNAP - Folosește API-ul hardware ImageCapture dacă este disponibil
-    btnManualSnap.addEventListener('click', async () => {
+    // Declansare manuala SNAP - Standard Canvas-based capture
+    btnManualSnap.addEventListener('click', () => {
         if (!videoStream || !cameraActive) return;
-
-        const track = videoStream.getVideoTracks()[0];
-        
-        if (window.ImageCapture) {
-            try {
-                const imageCapture = new ImageCapture(track);
-                const blob = await imageCapture.takePhoto();
-                const url = URL.createObjectURL(blob);
-                
-                const snapImg = new Image();
-                snapImg.onload = () => {
-                    URL.revokeObjectURL(url);
-                    proceseazaSnapFinal(snapImg);
-                };
-                snapImg.src = url;
-                return; 
-            } catch (err) {
-                console.warn("ImageCapture a eșuat, se aplică fallback-ul pe Canvas video:", err);
-            }
-        }
 
         const vw = videoPreview.videoWidth;
         const vh = videoPreview.videoHeight;
@@ -790,46 +741,38 @@
         const snapCtx = snapCanvas.getContext('2d');
         snapCtx.drawImage(videoPreview, 0, 0, vw, vh);
 
-        const snapImg = new Image();
-        snapImg.onload = () => {
-            proceseazaSnapFinal(snapImg);
-        };
-        snapImg.src = snapCanvas.toDataURL('image/png');
-    });
+        let colțuriSalvate = trackerColturiSursa;
+        if (!colțuriSalvate || colțuriSalvate.length !== 4) {
+            const rezFinal = detecteazaColturiCarte(snapCanvas);
+            colțuriSalvate = rezFinal.puncte;
+        }
 
-    function proceseazaSnapFinal(snapImg) {
         opresteCameraDacaEsteActiva();
         cameraInterface.style.display = 'none';
 
-        const rezFinal = detecteazaColturiCarte(snapImg);
-        
-        imgDesen = snapImg;
-        puncteSelectate = rezFinal.puncte; 
-        
-        boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
-        canvasSelectie = document.getElementById('canvasSelectie');
-        
-        btnResetPuncte.style.display = 'inline-block';
-        randeazaSelectie();
-        actualizeazaInfoPuncte();
-        
-        instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru de rezoluție maximă salvat!</span>";
+        const imagineSnap = new Image();
+        imagineSnap.onload = () => {
+            imgDesen = imagineSnap;
+            puncteSelectate = colțuriSalvate; 
+            
+            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
+            canvasSelectie = document.getElementById('canvasSelectie');
+            
+            btnResetPuncte.style.display = 'inline-block';
+            randeazaSelectie();
+            actualizeazaInfoPuncte();
+            
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat!</span>";
 
-        if (window.innerWidth <= 768) {
-            mBtnStart.style.display = 'none';
-            mResultContainer.style.display = 'none';
-            mAdjustmentContainer.style.display = 'flex';
-            
-            const mCanvasPreview = document.getElementById('mCanvasPreview');
-            mCanvasPreview.width = 489;
-            mCanvasPreview.height = 680;
-            const mCtxPreview = mCanvasPreview.getContext('2d');
-            
-            mCtxPreview.drawImage(snapImg, 0, 0, 489, 680);
-        } else {
-            executaTransfer();
-        }
-    }
+            // PE MOBIL: Trimitem direct la rezultatul final procesat
+            if (window.innerWidth <= 768) {
+                executaTransfer();
+            } else {
+                executaTransfer();
+            }
+        };
+        imagineSnap.src = snapCanvas.toDataURL('image/png');
+    });
 
     btnCancelCamera.addEventListener('click', () => {
         opresteCameraDacaEsteActiva();
@@ -837,7 +780,6 @@
         if (window.innerWidth <= 768) {
             mBtnStart.style.display = 'block';
             mResultContainer.style.display = 'none';
-            mAdjustmentContainer.style.display = 'none';
         } else {
             instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
         }
@@ -1020,45 +962,7 @@
         return inside;
     }
 
-    // --- FILTRU DE CLARITATE CONVOLUȚIONAL (Unsharp Sharpening) ---
-    function aplicaClaritate(imageData) {
-        const w = imageData.width;
-        const h = imageData.height;
-        const src = imageData.data;
-        const output = new Uint8ClampedArray(src.length);
-        
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const idx = (y * w + x) * 4;
-                output[idx + 3] = src[idx + 3]; 
-                
-                if (x === 0 || x === w - 1 || y === 0 || y === h - 1) {
-                    output[idx] = src[idx];
-                    output[idx + 1] = src[idx + 1];
-                    output[idx + 2] = src[idx + 2];
-                    continue;
-                }
-                
-                const top = idx - w * 4;
-                const bottom = idx + w * 4;
-                const left = idx - 4;
-                const right = idx + 4;
-                
-                for (let c = 0; c < 3; c++) {
-                    const val = 5 * src[idx + c] 
-                              - src[top + c] 
-                              - src[bottom + c] 
-                              - src[left + c] 
-                              - src[right + c];
-                    
-                    output[idx + c] = Math.min(255, Math.max(0, val));
-                }
-            }
-        }
-        src.set(output);
-    }
-
-    // --- PROCESUL DE TRANSFER (Pre-clarificare, Extracție biliniară directă cu Smoothstep și Blending Multiply) ---
+    // --- PROCESUL DE TRANSFER (Extracție directă cu Smoothstep și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1093,8 +997,8 @@
             tempCanvas.width = targetW;
             tempCanvas.height = targetH;
 
-            const imgDataWarped = tempCtx.createImageData(targetW, targetH);
-            const warpedPixels = imgDataWarped.data;
+            const imgDataDesen = tempCtx.createImageData(targetW, targetH);
+            const outPixels = imgDataDesen.data;
 
             const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
             const dstPoints = puncteCoala.map(p => [p.x, p.y]); 
@@ -1106,7 +1010,9 @@
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
-            // Pasul 1.1: Warp de deformare utilizând interpolarea biliniară
+            const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
+            const zonaTranzitie = 15; 
+
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
                     const destIdx = (v * targetW + u) * 4;
@@ -1117,6 +1023,8 @@
 
                     if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
                         if (isPointInQuad(x, y, srcPoints)) {
+                            
+                            // --- INTERPOLARE BILINIARĂ ---
                             const x0 = Math.floor(x);
                             const y0 = Math.floor(y);
                             const x1 = x0 + 1;
@@ -1145,73 +1053,33 @@
                                       (1 - dx) * dy * srcPixels[idx01 + 2] +
                                       dx * dy * srcPixels[idx11 + 2];
 
-                            warpedPixels[destIdx]     = Math.round(r);
-                            warpedPixels[destIdx + 1] = Math.round(g);
-                            warpedPixels[destIdx + 2] = Math.round(b);
-                            warpedPixels[destIdx + 3] = 255; 
-                        } else {
-                            warpedPixels[destIdx]     = 255;
-                            warpedPixels[destIdx + 1] = 255;
-                            warpedPixels[destIdx + 2] = 255;
-                            warpedPixels[destIdx + 3] = 255;
+                            // Pentru roz-marker, Red și Blue sunt dominante față de Green
+                            const diferentaRoz = (r - g) + (b - g);
+
+                            let alpha = 0;
+                            if (r > 60 && diferentaRoz >= pragDiferentaRoz) {
+                                alpha = 255;
+                            } else if (r > 60 && diferentaRoz >= pragDiferentaRoz - zonaTranzitie) {
+                                const ratiune = (diferentaRoz - (pragDiferentaRoz - zonaTranzitie)) / zonaTranzitie;
+                                alpha = Math.round(255 * ratiune);
+                            }
+
+                            if (alpha > 0) {
+                                outPixels[destIdx]     = Math.round(r);
+                                outPixels[destIdx + 1] = Math.round(g);
+                                outPixels[destIdx + 2] = Math.round(b);
+                                outPixels[destIdx + 3] = alpha;
+                            } else {
+                                outPixels[destIdx + 3] = 0;
+                            }
                         }
-                    } else {
-                        warpedPixels[destIdx]     = 255;
-                        warpedPixels[destIdx + 1] = 255;
-                        warpedPixels[destIdx + 2] = 255;
-                        warpedPixels[destIdx + 3] = 255;
-                    }
-                }
-            }
-
-            // Pasul 1.2: Aplicăm filtrul convolutional de claritate pe imaginea deformată în memorie
-            aplicaClaritate(imgDataWarped);
-            const clarifiedPixels = imgDataWarped.data;
-
-            // Pregătim datele pentru pasul de extracție cromatică directă cu Smoothstep (Fără dilatare pe vecinătăți)
-            const imgDataDesen = tempCtx.createImageData(targetW, targetH);
-            const outPixels = imgDataDesen.data;
-
-            const pragSensibilitate = parseInt(sliderSensibilitate.value);
-
-            // Pasul 2: Extracție biliniară directă cu Smoothstep din imaginea clarificată pentru Roz (Marker)
-            for (let v = 0; v < targetH; v++) {
-                for (let u = 0; u < targetW; u++) {
-                    const idx = (v * targetW + u) * 4;
-                    const r = clarifiedPixels[idx];
-                    const g = clarifiedPixels[idx + 1];
-                    const b = clarifiedPixels[idx + 2];
-
-                    // Pentru roz-marker, Red și Blue sunt dominante față de Green
-                    const diferentaRoz = (r - g) + (b - g);
-
-                    let scorCerneala = 0;
-                    if (r > 70 && b > 50 && diferentaRoz > 0) {
-                        scorCerneala = diferentaRoz;
-                    }
-
-                    // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep
-                    let alpha = 0;
-                    if (scorCerneala > pragSensibilitate) {
-                        const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / 35));
-                        const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
-                        alpha = Math.round(smoothT * 255);
-                    }
-
-                    if (alpha > 0) {
-                        outPixels[idx]     = r;
-                        outPixels[idx + 1] = g;
-                        outPixels[idx + 2] = b;
-                        outPixels[idx + 3] = alpha;
-                    } else {
-                        outPixels[idx + 3] = 0;
                     }
                 }
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
+            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 
@@ -1225,7 +1093,6 @@
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
                 mBtnStart.style.display = 'none';
-                mAdjustmentContainer.style.display = 'none';
                 
                 const mCanvas = document.getElementById('mCanvasRezultat');
                 mCanvas.width = targetW;
@@ -1242,14 +1109,8 @@
         btnStartCamera.click(); 
     });
 
-    mBtnProcess.addEventListener('click', () => {
-        mAdjustmentContainer.style.display = 'none';
-        executaTransfer();
-    });
-
     mBtnRestart.addEventListener('click', () => {
         mResultContainer.style.display = 'none';
-        mAdjustmentContainer.style.display = 'none';
         mBtnStart.style.display = 'block';
         autoTransferRulat = false; 
     });

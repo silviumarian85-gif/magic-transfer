@@ -239,8 +239,8 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">55</span></label>
-        <input type="range" id="sensibilitate" min="15" max="140" value="55" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Marker): <span id="valSensibilitate">35</span></label>
+        <input type="range" id="sensibilitate" min="10" max="120" value="35" style="width: 100%;">
     </div>
 
     <div>
@@ -289,8 +289,8 @@
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
-            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">55</span></label>
-            <input type="range" id="mSensibilitate" min="15" max="140" value="55" style="width: 100%;">
+            <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">35</span></label>
+            <input type="range" id="mSensibilitate" min="10" max="120" value="35" style="width: 100%;">
         </div>
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
@@ -1096,7 +1096,8 @@
                             const diferentaRoz = (r - g) + (b - g);
 
                             let scorCerneala = 0;
-                            if (r > 60 && diferentaRoz >= pragSensibilitate) {
+                            // Folosim limita de siguranță coborâtă la r > 40 pentru a detecta markerul chiar și pe o foaie gri umbrită
+                            if (r > 40 && diferentaRoz >= pragSensibilitate) {
                                 scorCerneala = diferentaRoz;
                             }
 

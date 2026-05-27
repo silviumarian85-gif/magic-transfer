@@ -224,17 +224,21 @@
 <div class="container">
     <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu (Degrade/Lumină)</h2>
     
-    <div class="upload-section">
+    <!-- Zona de Start PC centrată -->
+    <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
-        <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 20px;">
-            <div style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-                Versiune 14
-            </div>
+        <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
+            Versiune 15
         </div>
 
-        <div>
-            <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
+        <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
+            <button id="btnStartCamera" class="btn-camera" style="padding: 15px 30px; font-size: 16px;">📷 Activează Cameră Spate</button>
+            <button onclick="window.location.reload();" class="btn-upload" style="background: #dc3545; padding: 15px 30px; font-size: 16px; font-weight: 600;">🔄 Reîncarcă Pagina</button>
         </div>
+    </div>
+
+    <!-- Secțiunea secundară de încărcare fișiere (Desktop only) -->
+    <div class="upload-section" style="margin-top: 15px;">
         <div class="desktop-only">
             <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Sursă</label>
             <input type="file" id="incarcaDesen" accept="image/*">
@@ -245,9 +249,22 @@
         </div>
     </div>
 
-    <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
-        <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
+    <!-- Slidere Corecție și Detecție (PC) -->
+    <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+        <div class="slider-box" style="margin: 0;">
+            <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
+            <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
+        </div>
+
+        <div class="slider-box" style="margin: 0;">
+            <label for="intensitateCorectie">Intensitate Corecție Highlights: <span id="valIntensitateCorectie">65</span>%</label>
+            <input type="range" id="intensitateCorectie" min="0" max="100" value="65" style="width: 100%;">
+        </div>
+
+        <div class="slider-box" style="margin: 0;">
+            <label for="pragCorectie">Prag Activare Corecție: 0.<span id="valPragCorectie">35</span></label>
+            <input type="range" id="pragCorectie" min="10" max="90" value="35" style="width: 100%;">
+        </div>
     </div>
 
     <div>
@@ -289,21 +306,40 @@
 
 <!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
 <div class="mobile-flow">
-    <!-- Badge Iteratie Mobil: Afișare mare și clară -->
-    <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 35px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-        Versiune 14
-    </div>
+    <!-- Pasul 1: Ecranul de start mobil centrat -->
+    <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
+        <!-- Badge Iteratie Mobil: Afișare mare și clară -->
+        <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
+            Versiune 15
+        </div>
 
-    <!-- Pasul 1: Doar butonul de pornire -->
-    <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
+        <!-- Buton de Pornire Cameră Mobil -->
+        <button id="mBtnStart" class="btn-mobile-start">🎥 Pornește Camera</button>
+        
+        <!-- Buton de Refresh sub butonul de start -->
+        <button onclick="window.location.reload();" class="btn-mobile-restart" style="margin-top: 20px; background: #dc3545; padding: 14px 35px; font-size: 16px; border-radius: 8px;">🔄 Reîncarcă Pagina</button>
+    </div>
     
     <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
     <div id="mAdjustmentContainer" class="m-adjust-container">
         <canvas id="mCanvasPreview" class="m-canvas"></canvas>
+        
+        <!-- Slidere pe Mobil -->
         <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 15px;">
             <label for="mSensibilitate" style="color: #fff; display: block; margin-bottom: 5px;">Sensibilitate Selectare (Filtru Desen): <span id="mValSensibilitate">20</span></label>
             <input type="range" id="mSensibilitate" min="0" max="150" value="20" style="width: 100%;">
         </div>
+
+        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 10px;">
+            <label for="mIntensitateCorectie" style="color: #fff; display: block; margin-bottom: 5px;">Intensitate Corecție Highlights: <span id="mValIntensitateCorectie">65</span>%</label>
+            <input type="range" id="mIntensitateCorectie" min="0" max="100" value="65" style="width: 100%;">
+        </div>
+
+        <div class="slider-box" style="width: 100%; max-width: 320px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; margin-top: 10px;">
+            <label for="mPragCorectie" style="color: #fff; display: block; margin-bottom: 5px;">Prag Activare Corecție: 0.<span id="mValPragCorectie">35</span></label>
+            <input type="range" id="mPragCorectie" min="10" max="90" value="35" style="width: 100%;">
+        </div>
+
         <button id="mBtnProcess" class="btn-transfer" style="background: #28a745; margin-top: 15px; width: 80%; max-width: 280px; padding: 12px 0; font-size: 16px;">🚀 Procesează</button>
     </div>
     
@@ -333,8 +369,22 @@
     const incarcaCoalaGoala = document.getElementById('incarcaCoalaGoala');
     const butonTransfer = document.getElementById('butonTransfer');
     const btnStartCamera = document.getElementById('btnStartCamera');
+    
     const sliderSensibilitate = document.getElementById('sensibilitate');
     const valSensibilitate = document.getElementById('valSensibilitate');
+    
+    // Slidere noi Post-Procesare (PC)
+    const sliderIntensitate = document.getElementById('intensitateCorectie');
+    const valIntensitate = document.getElementById('valIntensitateCorectie');
+    const sliderPrag = document.getElementById('pragCorectie');
+    const valPrag = document.getElementById('valPragCorectie');
+
+    // Slidere noi Post-Procesare (Mobil)
+    const mSliderIntensitate = document.getElementById('mIntensitateCorectie');
+    const mValIntensitate = document.getElementById('mValIntensitateCorectie');
+    const mSliderPrag = document.getElementById('mPragCorectie');
+    const mValPrag = document.getElementById('mValPragCorectie');
+
     const instructiuniPuncte = document.getElementById('instructiuniPuncte');
     const instructiuniPuncteCoala = document.getElementById('instructiuniPuncteCoala');
     const btnResetPuncte = document.getElementById('btnResetPuncte');
@@ -388,6 +438,7 @@
     let videoStream = null;
     let trackerColturiSursa = [];
 
+    // --- SINCRONIZARE ELEMENTE UI ---
     sliderSensibilitate.addEventListener('input', () => { valSensibilitate.textContent = sliderSensibilitate.value; });
 
     mSensibilitate.addEventListener('input', () => {
@@ -395,6 +446,36 @@
         sliderSensibilitate.value = mSensibilitate.value;
         valSensibilitate.textContent = mSensibilitate.value;
     });
+
+    // Sincronizare Intensitate Corecție
+    sliderIntensitate.addEventListener('input', () => {
+        valIntensitate.textContent = sliderIntensitate.value;
+        mSliderIntensitate.value = sliderIntensitate.value;
+        mValIntensitate.textContent = sliderIntensitate.value;
+    });
+    mSliderIntensitate.addEventListener('input', () => {
+        mValIntensitate.textContent = mSliderIntensitate.value;
+        sliderIntensitate.value = mSliderIntensitate.value;
+        valIntensitate.textContent = mSliderIntensitate.value;
+    });
+
+    // Sincronizare Prag Corecție
+    sliderPrag.addEventListener('input', () => {
+        valPrag.textContent = sliderPrag.value;
+        mSliderPrag.value = sliderPrag.value;
+        mValPrag.textContent = sliderPrag.value;
+    });
+    mSliderPrag.addEventListener('input', () => {
+        mValPrag.textContent = mSliderPrag.value;
+        sliderPrag.value = mSliderPrag.value;
+        valPrag.textContent = mSliderPrag.value;
+    });
+
+    // Funcție pentru a ascunde badge-ul de versiune pe PC
+    function ascundeVersiunePC() {
+        const badge = document.getElementById('dVersionBadge');
+        if (badge) badge.style.display = 'none';
+    }
 
     // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU METODA GEOMETRICĂ FILTRATĂ ȘI STABILĂ ---
     function detecteazaColturiCarte(imgOrCanvas) {
@@ -619,6 +700,7 @@
     // --- REUTILIZARE LOGICĂ DE PROCESARE IMAGINI ---
     function handleIncarcareImagineSursa(img) {
         opresteCameraDacaEsteActiva();
+        ascundeVersiunePC();
         imgDesen = img;
         boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
         canvasSelectie = document.getElementById('canvasSelectie');
@@ -709,6 +791,7 @@
             }
 
             cameraActive = true;
+            ascundeVersiunePC();
             resizeOverlay();
             
             requestAnimationFrame(analizeazaCadruVideoLive);
@@ -716,7 +799,7 @@
         } catch (err) {
             cameraInterface.style.display = 'none';
             if (window.innerWidth <= 768) {
-                mBtnStart.style.display = 'block';
+                document.getElementById('mStartScreen').style.display = 'flex';
             }
             instructiuniPuncte.innerHTML = "<span style='color: #dc3545;'>❌ Eroare acces cameră. Asigurați-vă că folosiți HTTPS.</span>";
             console.error(err);
@@ -843,7 +926,7 @@
             instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat și orientat!</span>";
 
             if (window.innerWidth <= 768) {
-                mBtnStart.style.display = 'none';
+                document.getElementById('mStartScreen').style.display = 'none';
                 mResultContainer.style.display = 'none';
                 mAdjustmentContainer.style.display = 'flex';
                 
@@ -876,7 +959,7 @@
         opresteCameraDacaEsteActiva();
         cameraInterface.style.display = 'none';
         if (window.innerWidth <= 768) {
-            mBtnStart.style.display = 'block';
+            document.getElementById('mStartScreen').style.display = 'flex';
             mResultContainer.style.display = 'none';
             mAdjustmentContainer.style.display = 'none';
         } else {
@@ -1145,6 +1228,9 @@
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
+            const maxCorectieVal = parseFloat(sliderIntensitate.value) / 100; // 0.0 - 1.0
+            const pragActivareVal = parseFloat(sliderPrag.value) / 100; // 0.10 - 0.90
+
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
             // Factorul de curbă de contrast (Hermite S-curve / Contrast Curves) pentru intensificare culori
@@ -1243,12 +1329,14 @@
                                 // Identificăm gradul de supraexpunere / albire (când G și B cresc în raport cu R din cauza luminii)
                                 const albire = Math.min(0.9, (g + b) / (2 * r + 1));
 
-                                // Ajustăm coeficientul de corecție dinamic: în zonele "spălăcite" corecția este masivă
-                                // Începând cu Versiunea 14: aplicăm corecție DOAR dacă lumina este puternică (albire > 0.35)
-                                // și o limităm la maxim 65% pentru a lăsa să se vadă textura markerului în zonele bune.
+                                // Corecție adaptivă pe baza sliderelor active din interfață
                                 let factorCorectie = 0;
-                                if (albire > 0.35) {
-                                    factorCorectie = Math.min(0.65, (albire - 0.35) / (0.9 - 0.35));
+                                if (albire > pragActivareVal) {
+                                    const intervalCorectie = 0.90 - pragActivareVal;
+                                    const distanta = albire - pragActivareVal;
+                                    const raportScale = intervalCorectie > 0 ? (distanta / intervalCorectie) : 1;
+                                    
+                                    factorCorectie = Math.min(maxCorectieVal, raportScale * maxCorectieVal);
                                 }
 
                                 const nouR = Math.round(origR * (1 - factorCorectie) + tintaR * factorCorectie);
@@ -1282,7 +1370,7 @@
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
-                mBtnStart.style.display = 'none';
+                document.getElementById('mStartScreen').style.display = 'none';
                 mAdjustmentContainer.style.display = 'none';
                 
                 const mCanvas = document.getElementById('mCanvasRezultat');
@@ -1296,7 +1384,7 @@
 
     // --- CONTROL WORKFLOW MOBIL ---
     mBtnStart.addEventListener('click', () => {
-        mBtnStart.style.display = 'none';
+        document.getElementById('mStartScreen').style.display = 'none'; // Ascunde ecranul de start complet
         btnStartCamera.click(); 
     });
 
@@ -1308,7 +1396,7 @@
     mBtnRestart.addEventListener('click', () => {
         mResultContainer.style.display = 'none';
         mAdjustmentContainer.style.display = 'none';
-        mBtnStart.style.display = 'block';
+        document.getElementById('mStartScreen').style.display = 'flex'; // Revine la ecranul de start
         autoTransferRulat = false; 
     });
 

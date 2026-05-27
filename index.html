@@ -968,7 +968,7 @@
         return inside;
     }
 
-    // --- PROCESUL DE TRANSFER (Calculare margini și scalare la 489x680px) ---
+    // --- PROCESUL DE TRANSFER (Calculare margini, scalare la 489x680px și Blending Multiply) ---
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -985,7 +985,7 @@
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // Desenăm imaginea de referință scalată pe spațiul complet de 489x680px
+            // Pasul 1: Desenăm imaginea de referință ca fundal standard (source-over)
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1064,8 +1064,13 @@
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            ctx.globalCompositeOperation = 'source-over';
+            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
+            // Acest lucru garantează o fuziune realistă a pigmenților roz în structura hârtiei de dedesubt
+            ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
+
+            // Resetăm modul de compoziție la cel standard
+            ctx.globalCompositeOperation = 'source-over';
 
             butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
             butonTransfer.disabled = false;

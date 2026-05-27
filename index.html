@@ -1062,19 +1062,17 @@
                 }
             }
 
-      tempCtx.putImageData(imgDataDesen, 0, 0);
+            tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Se aplică blendingul 'darken'
+tempCtx.putImageData(imgDataDesen, 0, 0);
+
+            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending DARKEN
+            // Reține pixelii cei mai întunecați din ambele straturi pentru o integrare cromatică naturală
             ctx.globalCompositeOperation = 'darken';
             ctx.drawImage(tempCanvas, 0, 0);
 
-            // Se resetează compoziția la cea standard pentru desene viitoare
+            // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
-
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
-            butonTransfer.disabled = false;
-        }, 50);
-    }
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';

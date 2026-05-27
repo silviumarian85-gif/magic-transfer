@@ -225,10 +225,10 @@
     <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu (Degrade/Lumină)</h2>
     
     <div class="upload-section">
-        <!-- Badge Iteratie pentru PC -->
-        <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 10px;">
-            <div style="font-size: 13px; font-weight: bold; color: #1a202c; background: #edf2f7; padding: 6px 16px; border-radius: 30px; border: 1px solid #cbd5e0; display: inline-flex; align-items: center; gap: 6px;">
-                🔄 Versiune Cod Server: <span style="color: #dd6b20;">Iterația #012 [Stabilizator Roșu Uniformizat & Retuș Expunere]</span>
+        <!-- Badge Iteratie PC: Afișare mare și clară -->
+        <div style="width: 100%; display: flex; justify-content: center; margin-bottom: 20px;">
+            <div style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
+                Versiune 13
             </div>
         </div>
 
@@ -289,10 +289,9 @@
 
 <!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
 <div class="mobile-flow">
-    <!-- Badge Iteratie pentru Mobil -->
-    <div style="font-size: 13px; font-weight: bold; color: #fff; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 25px; text-align: center;">
-        🔄 Versiune Cod Server:<br>
-        <span style="color: #fbd38d;">Iterația #012 [Stabilizator Roșu Uniformizat & Retuș Expunere]</span>
+    <!-- Badge Iteratie Mobil: Afișare mare și clară -->
+    <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 35px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
+        Versiune 13
     </div>
 
     <!-- Pasul 1: Doar butonul de pornire -->
@@ -1198,16 +1197,21 @@
                                       (1 - dx) * dy * srcPixels[idx01 + 2] +
                                       dx * dy * srcPixels[idx11 + 2];
 
-                            // --- FILTRARE ROȘU ---
+                            // --- FILTRARE ROȘU REZISTENTĂ LA LUMINA CALDĂ ȘI ALBIRE ---
                             const maxGB = Math.max(g, b);
                             const diferentaRosu = r - maxGB;
+                            
+                            // Evaluăm raportul de saturație al canalului roșu (rRatio).
+                            // Pe suprafețele de alb cald / gri, acest raport este sub 1.15.
+                            // Pentru cerneală roșie reală (fie ea și în degrade sau umbrită), raportul depășește 1.18.
+                            const rRatio = r / (maxGB + 1);
 
                             let scorCerneala = 0;
-                            if (r > 35 && r > maxGB) {
-                                // Determinăm ponderea roșului în totalul pixelului
+                            if (r > 40 && rRatio > 1.18 && diferentaRosu > 5) {
+                                // Determinăm ponderea roșului în compoziția cromatică
                                 const proportieRosu = r / (r + g + b + 1);
-                                // Ponderăm diferența absolută cu dominanța pentru a păstra detaliile fine
-                                scorCerneala = diferentaRosu * (proportieRosu * 2.5);
+                                // Ponderăm diferența absolută cu dominanța pentru a păstra fidel detaliile fine
+                                scorCerneala = diferentaRosu * (proportieRosu * 3.0);
                             }
 
                             // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep
@@ -1216,7 +1220,7 @@
                                 const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
                                 const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
                                 
-                                // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile șterse / fine
+                                // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile fine
                                 alpha = Math.round(Math.pow(smoothT, 0.8) * 255);
                             }
 
@@ -1236,7 +1240,7 @@
                                 const tintaG = 15;
                                 const tintaB = 30;
 
-                                // Identificăm gradul de supraexpunere / reflexie (când G și B cresc în raport cu R din cauza luminii)
+                                // Identificăm gradul de supraexpunere / albire (când G și B cresc în raport cu R din cauza luminii)
                                 const albire = Math.min(0.9, (g + b) / (2 * r + 1));
 
                                 // Ajustăm coeficientul de corecție dinamic: în zonele "spălăcite" corecția este masivă

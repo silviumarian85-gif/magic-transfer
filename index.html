@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz</title>
+    <title>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru (Pix)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; padding: 20px; text-align: center; margin: 0; }
         .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -67,74 +67,6 @@
         }
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
-
-        /* Interfața camerei pe tot ecranul */
-        .camera-overlay-container {
-            display: none; 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100vw; 
-            height: 100vh; 
-            background: #000; 
-            z-index: 99999;
-            overflow: hidden;
-        }
-        .camera-video {
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            position: absolute; 
-            top: 0; 
-            left: 0;
-        }
-        .camera-canvas {
-            width: 100%; 
-            height: 100%; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            pointer-events: none; 
-            z-index: 100000;
-        }
-        .btn-snap-trigger {
-            position: absolute; 
-            bottom: 40px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            z-index: 100001; 
-            background: #ffffff; 
-            color: #000000; 
-            border: 5px solid rgba(0,0,0,0.2); 
-            border-radius: 50%; 
-            width: 80px; 
-            height: 80px; 
-            font-weight: bold; 
-            font-size: 15px; 
-            cursor: pointer; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            transition: transform 0.1s;
-        }
-        .btn-snap-trigger:active {
-            transform: translateX(-50%) scale(0.9);
-        }
-        .btn-cancel-camera {
-            position: absolute; 
-            top: 25px; 
-            right: 25px; 
-            z-index: 100001; 
-            background: rgba(0,0,0,0.6); 
-            color: #fff; 
-            border: 1px solid rgba(255,255,255,0.3); 
-            border-radius: 6px; 
-            padding: 8px 16px; 
-            font-weight: bold; 
-            font-size: 14px;
-            cursor: pointer;
-        }
 
         /* Containerul fluxului minimalist pe mobil */
         .mobile-flow {
@@ -205,35 +137,103 @@
                 cursor: pointer;
             }
         }
+
+        /* Interfața camerei pe tot ecranul */
+        .camera-overlay-container {
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #000; 
+            z-index: 99999;
+            overflow: hidden;
+        }
+        .camera-video {
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            position: absolute; 
+            top: 0; 
+            left: 0;
+        }
+        .camera-canvas {
+            width: 100%; 
+            height: 100%; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            pointer-events: none; 
+            z-index: 100000;
+        }
+        .btn-snap-trigger {
+            position: absolute; 
+            bottom: 40px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 100001; 
+            background: #ffffff; 
+            color: #000000; 
+            border: 5px solid rgba(0,0,0,0.2); 
+            border-radius: 50%; 
+            width: 80px; 
+            height: 80px; 
+            font-weight: bold; 
+            font-size: 15px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+        .btn-snap-trigger:active {
+            transform: translateX(-50%) scale(0.9);
+        }
+        .btn-cancel-camera {
+            position: absolute; 
+            top: 25px; 
+            right: 25px; 
+            z-index: 100001; 
+            background: rgba(0,0,0,0.6); 
+            color: #fff; 
+            border: 1px solid rgba(255,255,255,0.3); 
+            border-radius: 6px; 
+            padding: 8px 16px; 
+            font-weight: bold; 
+            font-size: 14px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
 <!-- INTERFAȚA PENTRU PC (Desktop) -->
 <div class="container">
-    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roz</h2>
+    <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Albastru (Pix)</h2>
     
     <div class="upload-section">
         <div>
             <button id="btnStartCamera" class="btn-camera">📷 Activează Cameră Spate</button>
         </div>
-        <div>
+        <div class="desktop-only">
             <label for="incarcaDesen" class="btn-upload">🃏 Încarcă Imagine Sursă</label>
             <input type="file" id="incarcaDesen" accept="image/*">
         </div>
-        <div>
+        <div class="desktop-only">
             <label for="incarcaCoalaGoala" class="btn-upload">📄 Încarcă Referință (Cartea 2)</label>
             <input type="file" id="incarcaCoalaGoala" accept="image/*">
         </div>
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Roz (Filtru Desen): <span id="valSensibilitate">55</span></label>
-        <input type="range" id="sensibilitate" min="15" max="140" value="55" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Selectare Albastru (Filtru Pix): <span id="valSensibilitate">45</span></label>
+        <input type="range" id="sensibilitate" min="10" max="130" value="45" style="width: 100%;">
     </div>
 
     <div>
-        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Roz</button>
+        <button id="butonTransfer" class="btn-transfer">🚀 Aliniază și Transferă Desenul Albastru</button>
     </div>
 
     <div class="workspace">
@@ -260,7 +260,7 @@
         </div>
 
         <div class="panel">
-            <h3>3. Rezultat Aliniat (Doar Desenul Roz)</h3>
+            <h3>3. Rezultat Aliniat (Doar Desenul Albastru)</h3>
             <div class="preview-box" id="boxRezultat">
                 <span id="textInfoRezultat" style="color: #a0aec0; font-size: 14px;">Apasă pe "Aliniază și Transferă"</span>
                 <canvas id="canvasRezultat" title="Click pentru analiză full screen și zoom 100%"></canvas>
@@ -1018,7 +1018,7 @@
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
-            const pragDiferentaRoz = parseInt(sliderSensibilitate.value);
+            const pragDiferentaAlbastru = parseInt(sliderSensibilitate.value);
             const zonaTranzitie = 15; 
 
             for (let v = 0; v < targetH; v++) {
@@ -1039,13 +1039,14 @@
                             const g = srcPixels[idx + 1];
                             const b = srcPixels[idx + 2];
 
-                            const diferentaRoz = (r - g) + (b - g);
+                            // Pentru albastru închis de pix, canalul B domină net atât canalul R, cât și canalul G
+                            const diferentaAlbastru = b - Math.max(r, g);
 
                             let alpha = 0;
-                            if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz) {
+                            if (b > 50 && diferentaAlbastru >= pragDiferentaAlbastru) {
                                 alpha = 255;
-                            } else if (r > 70 && b > 50 && diferentaRoz >= pragDiferentaRoz - zonaTranzitie) {
-                                const ratiune = (diferentaRoz - (pragDiferentaRoz - zonaTranzitie)) / zonaTranzitie;
+                            } else if (b > 50 && diferentaAlbastru >= pragDiferentaAlbastru - zonaTranzitie) {
+                                const ratiune = (diferentaAlbastru - (pragDiferentaAlbastru - zonaTranzitie)) / zonaTranzitie;
                                 alpha = Math.round(255 * ratiune);
                             }
 
@@ -1064,20 +1065,15 @@
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-tempCtx.putImageData(imgDataDesen, 0, 0);
-
-            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending DARKEN
-            // Reține pixelii cei mai întunecați din ambele straturi pentru o integrare cromatică naturală
-            ctx.globalCompositeOperation = 'darken';
+            // Pasul 2: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
+            // Acest lucru garantează o fuziune realistă a cernelii albastre în structura hârtiei de dedesubt
+            ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
-            // Resetăm modul de compoziție la cel standard
-            ctx.globalCompositeOperation = 'source-over';
-
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roz";
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Albastru";
             butonTransfer.disabled = false;
 
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)

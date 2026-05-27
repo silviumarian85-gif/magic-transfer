@@ -228,8 +228,8 @@
     </div>
 
     <div class="slider-box">
-        <label for="sensibilitate">Sensibilitate Selectare Albastru (Filtru Pix): <span id="valSensibilitate">45</span></label>
-        <input type="range" id="sensibilitate" min="10" max="130" value="45" style="width: 100%;">
+        <label for="sensibilitate">Sensibilitate Linii Subțiri (Pix Albastru/Negru): <span id="valSensibilitate">115</span></label>
+        <input type="range" id="sensibilitate" min="30" max="170" value="115" style="width: 100%;">
     </div>
 
     <div>
@@ -281,7 +281,7 @@
     </div>
 </div>
 
-<!-- CAPTURĂ CAMERA DIRECT PE TOT ECRANUL (Folosit pe ambele platforme) -->
+<!-- CAPTURĂ CAMERA DIRECT PENTRU TOT ECRANUL (Folosit pe ambele platforme) -->
 <div id="cameraInterface" class="camera-overlay-container">
     <video id="videoPreview" class="camera-video" autoplay playsinline></video>
     <canvas id="cameraOverlay" class="camera-canvas"></canvas>
@@ -1018,7 +1018,7 @@
             const h10 = H[3], h11 = H[4], h12 = H[5];
             const h20 = H[6], h21 = H[7], h22 = H[8];
 
-            const pragDiferentaAlbastru = parseInt(sliderSensibilitate.value);
+            const pragSensibilitate = parseInt(sliderSensibilitate.value);
             const zonaTranzitie = 15; 
 
             for (let v = 0; v < targetH; v++) {
@@ -1039,15 +1039,26 @@
                             const g = srcPixels[idx + 1];
                             const b = srcPixels[idx + 2];
 
-                            // Pentru albastru închis de pix, canalul B domină net atât canalul R, cât și canalul G
+                            // Indicatori cromatici de mare sensibilitate
+                            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
                             const diferentaAlbastru = b - Math.max(r, g);
 
+                            // Scorul de prezență a cernelei (hibrid: luma scăzută sau tentă puternică de albastru)
+                            let scorCerneala = 0;
+                            
+                            if (luma < pragSensibilitate) {
+                                // Scor invers proporțional cu luminozitatea (mai închis = mai multă cerneală)
+                                scorCerneala = (pragSensibilitate - luma) / pragSensibilitate * 255;
+                            }
+                            
+                            // Suplimentăm scorul dacă există o nuanță clară de albastru (pentru linii foarte subțiri native)
+                            if (diferentaAlbastru > 10 && luma < 160) {
+                                scorCerneala = Math.max(scorCerneala, (diferentaAlbastru * 3) + (160 - luma));
+                            }
+
                             let alpha = 0;
-                            if (b > 50 && diferentaAlbastru >= pragDiferentaAlbastru) {
-                                alpha = 255;
-                            } else if (b > 50 && diferentaAlbastru >= pragDiferentaAlbastru - zonaTranzitie) {
-                                const ratiune = (diferentaAlbastru - (pragDiferentaAlbastru - zonaTranzitie)) / zonaTranzitie;
-                                alpha = Math.round(255 * ratiune);
+                            if (scorCerneala > 15) {
+                                alpha = Math.min(255, scorCerneala * 2.5); // Amplificare pentru trăsăturile subțiri
                             }
 
                             if (alpha > 0) {

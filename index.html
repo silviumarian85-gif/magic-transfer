@@ -776,22 +776,34 @@
         requestAnimationFrame(analizeazaCadruVideoLive);
     }
 
-    // Declansare manuala SNAP - Standard Canvas-based capture
+    // Declansare manuala SNAP - Standard Canvas-based capture cu rotație fizică automată pe mobil
     btnManualSnap.addEventListener('click', () => {
         if (!videoStream || !cameraActive) return;
 
         const vw = videoPreview.videoWidth;
         const vh = videoPreview.videoHeight;
-        const snapCanvas = document.createElement('canvas');
-        snapCanvas.width = vw;
-        snapCanvas.height = vh;
-        const snapCtx = snapCanvas.getContext('2d');
-        snapCtx.drawImage(videoPreview, 0, 0, vw, vh);
 
-        let colțuriSalvate = trackerColturiSursa;
-        if (!colțuriSalvate || colțuriSalvate.length !== 4) {
-            const rezFinal = detecteazaColturiCarte(snapCanvas);
-            colțuriSalvate = rezFinal.puncte;
+        // Creăm canvas-ul de bază pentru captură
+        const snapCanvas = document.createElement('canvas');
+        
+        // Verificăm dacă suntem pe mobil (Portrait viewport) dar fluxul camerei este culcat (Landscape)
+        const trebuieRotit = (window.innerWidth <= 768 && vw > vh);
+
+        if (trebuieRotit) {
+            // Rotim fizic imaginea pentru a o salva direct în orientare Portret stabilă
+            snapCanvas.width = vh;  // Lățimea devine înălțimea veche
+            snapCanvas.height = vw; // Înălțimea devine lățimea veche
+            const snapCtx = snapCanvas.getContext('2d');
+            
+            // Rotim canvas-ul cu 90 de grade în sensul acelor de ceasornic
+            snapCtx.translate(vh / 2, vw / 2);
+            snapCtx.rotate(90 * Math.PI / 180);
+            snapCtx.drawImage(videoPreview, -vw / 2, -vh / 2, vw, vh);
+        } else {
+            snapCanvas.width = vw;
+            snapCanvas.height = vh;
+            const snapCtx = snapCanvas.getContext('2d');
+            snapCtx.drawImage(videoPreview, 0, 0, vw, vh);
         }
 
         opresteCameraDacaEsteActiva();
@@ -800,7 +812,10 @@
         const snapImg = new Image();
         snapImg.onload = () => {
             imgDesen = snapImg;
-            puncteSelectate = colțuriSalvate; 
+            
+            // Calculăm colțurile direct pe imaginea STATICA deja orientată corect!
+            const rezFinal = detecteazaColturiCarte(snapImg);
+            puncteSelectate = rezFinal.puncte; 
             
             boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
             canvasSelectie = document.getElementById('canvasSelectie');
@@ -809,7 +824,7 @@
             randeazaSelectie();
             actualizeazaInfoPuncte();
             
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat!</span>";
+            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Snap manual salvat și orientat!</span>";
 
             if (window.innerWidth <= 768) {
                 mBtnStart.style.display = 'none';
@@ -1034,7 +1049,7 @@
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // RESTAURARE POZA 2 (Fundal de referință fix, ne-turtit, la proporțiile native corecte de 489x680px)
+            // RESTAURARE POZA 2 (Format fix rectangular ne-turtit, la proporțiile native corecte de 489x680px)
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1056,40 +1071,17 @@
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
 
-            // Obținem colțurile detectate pentru analiză
-            const tl = puncteSelectate[0];
-            const tr = puncteSelectate[1];
-            const br = puncteSelectate[2];
-            const bl = puncteSelectate[3];
+            const srcPoints = puncteSelectate.map(p => [p.x, p.y]);
+            
+            // Maparea se realizează exclusiv pe proporția verticală perfectă de 489x680px
+            const dstPoints = [
+                [0, 0],
+                [targetW, 0],
+                [targetW, targetH],
+                [0, targetH]
+            ]; 
 
-            // DETERMINARE ORIENTARE REALĂ CARTE (Soluție pentru mismatch-ul de orientare Portrait/Landscape pe mobil)
-            // Măsurăm lungimile relative ale laturilor pentru a vedea dacă în cadrul brut cartea stă culcată (Landscape) sau dreaptă (Portrait)
-            const sideW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-            const sideH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
-
-            const srcPoints = [tl, tr, br, bl];
-            let dstPoints;
-
-            if (sideH >= sideW) {
-                // Cartea este deja verticală în poză: mapare standard 1-la-1 pe colțuri
-                dstPoints = [
-                    [0, 0],
-                    [targetW, 0],
-                    [targetW, targetH],
-                    [0, targetH]
-                ];
-            } else {
-                // Cartea este culcată în cadrul brut pe orizontală din cauza orientării hardware a camerei
-                // ROTIM AUTOMAT MAPAREA HOMOGRAFIEI cu 90 de grade la stânga pentru a o îndrepta perfect, fără a o mai turti!
-                dstPoints = [
-                    [0, targetH],
-                    [0, 0],
-                    [targetW, 0],
-                    [targetW, targetH]
-                ];
-            }
-
-            // Homografia corectează perspectiva, decupează, îndreaptă orientarea și scalează stabil la targetW x targetH (489x680px)
+            // Homografia corectează perspectiva, decupează și scalează la 489x680px
             const H = getHomographyMatrix(dstPoints, srcPoints);
 
             const h00 = H[0], h01 = H[1], h02 = H[2];

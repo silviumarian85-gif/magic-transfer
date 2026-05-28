@@ -244,7 +244,7 @@
     <div id="dStartScreen" style="background: #121212; padding: 40px; border-radius: 12px; margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 600px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div id="dVersionBadge" style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-bottom: 30px;">
-            Versiune 29
+            Versiune 30
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
@@ -325,7 +325,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; height: 100%; box-sizing: border-box; padding: 40px 20px; background: #000;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-top: 10px;">
-            Versiune 29
+            Versiune 30
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
@@ -559,7 +559,8 @@
             if (lumas[i] > maxLuma) maxLuma = lumas[i];
         }
         
-        const pragBinarizare = avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.60;
+        // REVIZUIT: Coeficientul a fost coborât de la 0.60 la 0.22 adaptiv pentru a tolera corect umbrele pe carte
+        const pragBinarizare = Math.max(avgBackgroundLuma + 15, avgBackgroundLuma + (maxLuma - avgBackgroundLuma) * 0.22);
         
         const visited = new Uint8Array(w * h);
         const queue = [];

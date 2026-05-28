@@ -1413,6 +1413,11 @@
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
             const satFactor = parseFloat(sliderSaturatie.value) / 100;
 
+            // Parametrii pentru tranziția fină (soft thresholding)
+            const minPrag = pragSensibilitate;
+            const maxPrag = pragSensibilitate + 15;
+            const range = maxPrag - minPrag;
+
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
                     const destIdx = (v * targetW + u) * 4;
@@ -1423,7 +1428,7 @@
                     const y = (h10 * u + h11 * v + h12) / denom;
 
                     if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
-                        // Interpolare biliniară fină a culorii
+                        // Interpolare biliniară fină a culorii sursă
                         const x0 = Math.floor(x);
                         const y0 = Math.floor(y);
                         const x1 = x0 + 1;
@@ -1454,40 +1459,45 @@
                         const maxGB = Math.max(g, b);
                         const diferentaRosu = r - maxGB;
 
-                        // Condiție cromatică suplimentară pentru identificarea nuanțelor de galben/verde/galben-verzui.
-                        // În spectrul cald, canalul verde (Green) are o pondere ridicată în raport cu canalul roșu (Red).
-                        const esteGalbenVerde = (g > r * 0.72);
-
-                        // Filtru de albire a non-culorilor și a nuanțelor galben/verde care reprezintă umbre:
-                        // Dacă pixelul nu este un roșu proeminent (e negru, gri, umbră de fundal, hârtie sau este galben/verde)
-                        if (diferentaRosu < pragSensibilitate || esteGalbenVerde) {
-                            // Îl convertim la alb pur opac
-                            outPixels[destIdx]     = 255;
-                            outPixels[destIdx + 1] = 255;
-                            outPixels[destIdx + 2] = 255;
-                            outPixels[destIdx + 3] = 255; 
-                        } else {
-                            // Păstrăm nuanțele desenului roșu și aplicăm factorul de saturație
-                            let finalR = r;
-                            let finalG = g;
-                            let finalB = b;
-
-                            if (satFactor !== 1.0) {
-                                const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-                                finalR = luma + (r - luma) * satFactor;
-                                finalG = luma + (g - luma) * satFactor;
-                                finalB = luma + (b - luma) * satFactor;
-
-                                finalR = Math.max(0, Math.min(255, finalR));
-                                finalG = Math.max(0, Math.min(255, finalG));
-                                finalB = Math.max(0, Math.min(255, finalB));
-                            }
-
-                            outPixels[destIdx]     = Math.round(finalR);
-                            outPixels[destIdx + 1] = Math.round(finalG);
-                            outPixels[destIdx + 2] = Math.round(finalB);
-                            outPixels[destIdx + 3] = 255; 
+                        // Calculăm coeficientul de tranzitie fină (soft threshold)
+                        // t = 0 -> complet alb (pentru umbre, hârtie, gri, negru)
+                        // t = 1 -> păstrează culoarea roșie nativă
+                        let t = 0;
+                        if (diferentaRosu > minPrag) {
+                            t = (diferentaRosu - minPrag) / range;
+                            if (t > 1.0) t = 1.0;
                         }
+
+                        // Aplicăm o curbă smoothstep pentru o tranziție extrem de fluidă la margini
+                        const smoothT = t * t * (3.0 - 2.0 * t);
+
+                        // Aplicăm saturația pe culoarea nativă
+                        let finalR = r;
+                        let finalG = g;
+                        let finalB = b;
+
+                        if (satFactor !== 1.0) {
+                            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                            finalR = luma + (r - luma) * satFactor;
+                            finalG = luma + (g - luma) * satFactor;
+                            finalB = luma + (b - luma) * satFactor;
+
+                            finalR = Math.max(0, Math.min(255, finalR));
+                            finalG = Math.max(0, Math.min(255, finalG));
+                            finalB = Math.max(0, Math.min(255, finalB));
+                        }
+
+                        // Interpolăm fin culoarea către ALB PUR pe baza coeficientului smoothT
+                        // Acest lucru elimină complet pixelarea / scărițele de pe marginea desenelor,
+                        // asigurând o estompare nativă ideală pentru blending-ul multiply.
+                        const outR = Math.round(smoothT * finalR + (1.0 - smoothT) * 255);
+                        const outG = Math.round(smoothT * finalG + (1.0 - smoothT) * 255);
+                        const outB = Math.round(smoothT * finalB + (1.0 - smoothT) * 255);
+
+                        outPixels[destIdx]     = outR;
+                        outPixels[destIdx + 1] = outG;
+                        outPixels[destIdx + 2] = outB;
+                        outPixels[destIdx + 3] = 255; 
                     } else {
                         // Afara din limitele imaginii
                         outPixels[destIdx]     = 255;
@@ -1500,8 +1510,7 @@
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 2: Suprapunem desenul curat pe Cartea 2 folosind blending Multiply
-            // Albul devine neutru, păstrând doar desenul roșu cu margini netezite nativ
+            // Pasul 2: Suprapunem rezultatul prin multiply
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
             ctx.globalCompositeOperation = 'source-over';

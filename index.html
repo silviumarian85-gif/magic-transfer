@@ -244,7 +244,7 @@
     <div id="dStartScreen" style="background: #121212; padding: 40px; border-radius: 12px; margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 600px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div id="dVersionBadge" style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-bottom: 30px;">
-            Versiune 30
+            Versiune 31
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
@@ -325,7 +325,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; height: 100%; box-sizing: border-box; padding: 40px 20px; background: #000;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-top: 10px;">
-            Versiune 30
+            Versiune 31
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
@@ -513,6 +513,14 @@
         mValSaturatie.textContent = mSliderSaturatie.value;
         sliderSaturatie.value = mSliderSaturatie.value;
         valSaturatie.textContent = mSliderSaturatie.value;
+    });
+
+    // Re-randare automată pe baza modificărilor din slidere la Desktop
+    sliderSensibilitate.addEventListener('change', () => {
+        if (imgDesen && imgCoalaGoala) executaTransfer();
+    });
+    sliderSaturatie.addEventListener('change', () => {
+        if (imgDesen && imgCoalaGoala) executaTransfer();
     });
 
     // Funcție pentru a ascunde ecranul de start pe PC
@@ -756,6 +764,7 @@
         randeazaSelectie();
         actualizeazaInfoPuncte();
         
+        autoTransferRulat = false; // CORECTAT: Permitem relansarea automată la încărcarea unei noi imagini
         verificaSiRuleazaTransferAuto();
     }
 
@@ -848,6 +857,8 @@
             btnResetPuncte.style.display = 'inline-block';
             randeazaSelectie();
             actualizeazaInfoPuncte();
+
+            autoTransferRulat = false; // Resetăm indicatorul pentru a asigura procesări repetate corecte
         };
         urlDesen = URL.createObjectURL(e.target.files[0]);
         img.src = urlDesen;
@@ -928,7 +939,6 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(videoPreview, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
-            // CORECTAT: eliminată eroarea de sintaxă ('const愉rezultat') generată accidental
             const rezultat = detecteazaColturiCarte(canvasAnaliza);
             trackerColturiSursa = rezultat.puncte;
 
@@ -983,7 +993,6 @@
         if (!imgCoalaGoala) {
             alert("Eroare: Imaginea de referință (as-02.png / Cartea 2) nu s-a putut încărca de pe server. Aplicația generează acum o carte virtuală albă de fallback...");
             
-            // Generăm dinamic o carte albă de fallback dacă as-02.png dă eroare
             const fallbackCanvas = document.createElement('canvas');
             fallbackCanvas.width = 489;
             fallbackCanvas.height = 680;
@@ -1007,6 +1016,9 @@
         mAdjustmentContainer.style.display = 'none';
         executaTransfer();
     });
+
+    // --- ASOCIERE CORECTĂ EVENIMENT DESKTOP CLICK PENTRU RULARE TRANSFER ---
+    butonTransfer.addEventListener('click', executaTransfer);
 
     // --- PROCESUL DE TRANSFER (Calibrare stabilă la formatul fix 489x680, Fără Uniformizare) ---
     function executaTransfer() {

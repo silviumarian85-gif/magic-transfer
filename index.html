@@ -259,7 +259,7 @@
 
     <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
         <div class="slider-box" style="margin: 0;">
-            <label for="sensibilitate">Sensibilitate Selectare Roșu (Toate Nuanțele): <span id="valSensibilitate">20</span></label>
+            <label for="sensibilitate">Prag eliminare fundal / umbre / negru (Sensibilitate): <span id="valSensibilitate">20</span></label>
             <input type="range" id="sensibilitate" min="0" max="150" value="20" style="width: 100%;">
         </div>
 
@@ -495,7 +495,7 @@
         if (screen) screen.style.display = 'none';
     }
 
-    // Algoritm detecție automată colțuri
+    // Algoritm detecție automată colțuri (Geometric robust)
     function detecteazaColturiCarte(imgOrCanvas) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -1336,7 +1336,7 @@
 
     butonTransfer.addEventListener('click', executaTransfer);
 
-    // Procesarea prin omografie și analiză de componente conexe (CCA)
+    // Procesarea prin omografie de imagine întreagă, filtrare cromatică și blending MULTIPLY
     function executaTransfer() {
         if (!imgDesen || !imgCoalaGoala) return;
 
@@ -1352,7 +1352,7 @@
             textInfoRezultat.style.display = 'none';
             canvas.style.display = 'block';
 
-            // Resetăm fundalul canvasului cu imaginea de referință (as-02)
+            // Pasul 1: Randăm cartea de referință (Cartea 2) pe canvasul final ca bază
             ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(imgCoalaGoala, 0, 0, targetW, targetH);
 
@@ -1366,6 +1366,7 @@
             const srcW = imgDesen.naturalWidth;
             const srcH = imgDesen.naturalHeight;
 
+            // Canvas temporar pentru proiectarea și transformarea opacă a Cărții 1
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             tempCanvas.width = targetW;
@@ -1373,11 +1374,6 @@
 
             const imgDataDesen = tempCtx.createImageData(targetW, targetH);
             const outPixels = imgDataDesen.data;
-
-            // Inițializăm pixelii noului strat ca fiind complet transparenți
-            for (let i = 0; i < outPixels.length; i += 4) {
-                outPixels[i + 3] = 0;
-            }
 
             const tl = puncteSelectate[0];
             const tr = puncteSelectate[1];
@@ -1416,219 +1412,92 @@
 
             const pragSensibilitate = parseInt(sliderSensibilitate.value);
             const satFactor = parseFloat(sliderSaturatie.value) / 100;
-            const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
-            // Matrice de calcul intermediar pentru analiza conexității
-            const scores = new Float32Array(targetW * targetH);
-            const tempR = new Uint8Array(targetW * targetH);
-            const tempG = new Uint8Array(targetW * targetH);
-            const tempB = new Uint8Array(targetW * targetH);
-            const tempAlpha = new Uint8Array(targetW * targetH);
-
-            // Pasul 1: Evaluăm toți pixelii și calculăm scorul de cerneală (local)
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
-                    const idx = v * targetW + u;
-                    scores[idx] = 0; 
+                    const destIdx = (v * targetW + u) * 4;
 
+                    // Proiecție inversă a coordonatelor
                     const denom = h20 * u + h21 * v + 1.0;
                     const x = (h00 * u + h01 * v + h02) / denom;
                     const y = (h10 * u + h11 * v + h12) / denom;
 
                     if (x >= 0 && x < srcW - 1 && y >= 0 && y < srcH - 1) {
-                        if (isPointInQuad(x, y, srcPoints)) {
-                            
-                            const x0 = Math.floor(x);
-                            const y0 = Math.floor(y);
-                            const x1 = x0 + 1;
-                            const y1 = y0 + 1;
-                            
-                            const dx = x - x0;
-                            const dy = y - y0;
+                        // Interpolare biliniară fină a culorii
+                        const x0 = Math.floor(x);
+                        const y0 = Math.floor(y);
+                        const x1 = x0 + 1;
+                        const y1 = y0 + 1;
+                        const dx = x - x0;
+                        const dy = y - y0;
 
-                            const idx00 = (y0 * srcW + x0) * 4;
-                            const idx10 = (y0 * srcW + x1) * 4;
-                            const idx01 = (y1 * srcW + x0) * 4;
-                            const idx11 = (y1 * srcW + x1) * 4;
+                        const idx00 = (y0 * srcW + x0) * 4;
+                        const idx10 = (y0 * srcW + x1) * 4;
+                        const idx01 = (y1 * srcW + x0) * 4;
+                        const idx11 = (y1 * srcW + x1) * 4;
 
-                            const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
-                                      dx * (1 - dy) * srcPixels[idx10] +
-                                      (1 - dx) * dy * srcPixels[idx01] +
-                                      dx * dy * srcPixels[idx11];
+                        const r = (1 - dx) * (1 - dy) * srcPixels[idx00] +
+                                  dx * (1 - dy) * srcPixels[idx10] +
+                                  (1 - dx) * dy * srcPixels[idx01] +
+                                  dx * dy * srcPixels[idx11];
 
-                            const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
-                                      dx * (1 - dy) * srcPixels[idx10 + 1] +
-                                      (1 - dx) * dy * srcPixels[idx01 + 1] +
-                                      dx * dy * srcPixels[idx11 + 1]; 
+                        const g = (1 - dx) * (1 - dy) * srcPixels[idx00 + 1] +
+                                  dx * (1 - dy) * srcPixels[idx10 + 1] +
+                                  (1 - dx) * dy * srcPixels[idx01 + 1] +
+                                  dx * dy * srcPixels[idx11 + 1]; 
 
-                            const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
-                                      dx * (1 - dy) * srcPixels[idx10 + 2] +
-                                      (1 - dx) * dy * srcPixels[idx01 + 2] +
-                                      dx * dy * srcPixels[idx11 + 2];
+                        const b = (1 - dx) * (1 - dy) * srcPixels[idx00 + 2] +
+                                  dx * (1 - dy) * srcPixels[idx10 + 2] +
+                                  (1 - dx) * dy * srcPixels[idx01 + 2] +
+                                  dx * dy * srcPixels[idx11 + 2];
 
-                            const maxGB = Math.max(g, b);
-                            const diferentaRosu = r - maxGB;
-                            const rRatio = r / (maxGB + 1);
+                        const maxGB = Math.max(g, b);
+                        const diferentaRosu = r - maxGB;
 
-                            let scorCerneala = 0;
-                            if (r > 40 && rRatio > 1.18 && diferentaRosu > 5) {
-                                const proportieRosu = r / (r + g + b + 1);
-                                scorCerneala = diferentaRosu * (proportieRosu * 3.0);
+                        // Filtru de albire a non-culorilor:
+                        // Dacă pixelul nu este un roșu proeminent (e negru, gri, umbră de fundal sau hârtie albă)
+                        if (diferentaRosu < pragSensibilitate) {
+                            // Îl convertim la alb pur opac
+                            outPixels[destIdx]     = 255;
+                            outPixels[destIdx + 1] = 255;
+                            outPixels[destIdx + 2] = 255;
+                            outPixels[destIdx + 3] = 255; 
+                        } else {
+                            // Păstrăm nuanțele desenului roșu și aplicăm factorul de saturație
+                            let finalR = r;
+                            let finalG = g;
+                            let finalB = b;
+
+                            if (satFactor !== 1.0) {
+                                const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                                finalR = luma + (r - luma) * satFactor;
+                                finalG = luma + (g - luma) * satFactor;
+                                finalB = luma + (b - luma) * satFactor;
+
+                                finalR = Math.max(0, Math.min(255, finalR));
+                                finalG = Math.max(0, Math.min(255, finalG));
+                                finalB = Math.max(0, Math.min(255, finalB));
                             }
 
-                            if (scorCerneala > pragSensibilitate) {
-                                scores[idx] = scorCerneala;
-                                
-                                let finalR = r;
-                                let finalG = g;
-                                let finalB = b;
-
-                                if (satFactor !== 1.0) {
-                                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-                                    finalR = luma + (r - luma) * satFactor;
-                                    finalG = luma + (g - luma) * satFactor;
-                                    finalB = luma + (b - luma) * satFactor;
-
-                                    finalR = Math.max(0, Math.min(255, finalR));
-                                    finalG = Math.max(0, Math.min(255, finalG));
-                                    finalB = Math.max(0, Math.min(255, finalB));
-                                }
-
-                                const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
-                                const smoothT = t * t * (3.0 - 2.0 * t);
-                                const alphaVal = Math.round(Math.pow(smoothT, 0.8) * 255);
-
-                                tempR[idx] = Math.round(finalR);
-                                tempG[idx] = Math.round(finalG);
-                                tempB[idx] = Math.round(finalB);
-                                tempAlpha[idx] = alphaVal;
-                            }
+                            outPixels[destIdx]     = Math.round(finalR);
+                            outPixels[destIdx + 1] = Math.round(finalG);
+                            outPixels[destIdx + 2] = Math.round(finalB);
+                            outPixels[destIdx + 3] = 255; 
                         }
+                    } else {
+                        // Afara din limitele imaginii
+                        outPixels[destIdx]     = 255;
+                        outPixels[destIdx + 1] = 255;
+                        outPixels[destIdx + 2] = 255;
+                        outPixels[destIdx + 3] = 255;
                     }
-                }
-            }
-
-            // Pasul 2: Analiza pe componente conexe (BFS) a insulelor de roșu selectate
-            const visited = new Uint8Array(targetW * targetH);
-            const queue = new Int32Array(targetW * targetH);
-            const components = [];
-
-            for (let y = 0; y < targetH; y++) {
-                for (let x = 0; x < targetW; x++) {
-                    const idx = y * targetW + x;
-                    if (scores[idx] > pragSensibilitate && visited[idx] === 0) {
-                        let qHead = 0;
-                        let qTail = 0;
-                        
-                        queue[qTail++] = idx;
-                        visited[idx] = 1;
-                        
-                        let sumScore = 0;
-                        let maxScore = 0;
-                        
-                        while (qHead < qTail) {
-                            const currIdx = queue[qHead++];
-                            const cx = currIdx % targetW;
-                            const cy = Math.floor(currIdx / targetW);
-                            const s = scores[currIdx];
-                            
-                            sumScore += s;
-                            if (s > maxScore) maxScore = s;
-                            
-                            // Vecinul din Stânga
-                            if (cx > 0) {
-                                const nIdx = currIdx - 1;
-                                if (scores[nIdx] > pragSensibilitate && visited[nIdx] === 0) {
-                                    visited[nIdx] = 1;
-                                    queue[qTail++] = nIdx;
-                                }
-                            }
-                            // Vecinul din Dreapta
-                            if (cx < targetW - 1) {
-                                const nIdx = currIdx + 1;
-                                if (scores[nIdx] > pragSensibilitate && visited[nIdx] === 0) {
-                                    visited[nIdx] = 1;
-                                    queue[qTail++] = nIdx;
-                                }
-                            }
-                            // Vecinul de Sus
-                            if (cy > 0) {
-                                const nIdx = currIdx - targetW;
-                                if (scores[nIdx] > pragSensibilitate && visited[nIdx] === 0) {
-                                    visited[nIdx] = 1;
-                                    queue[qTail++] = nIdx;
-                                }
-                            }
-                            // Vecinul de Jos
-                            if (cy < targetH - 1) {
-                                const nIdx = currIdx + targetW;
-                                if (scores[nIdx] > pragSensibilitate && visited[nIdx] === 0) {
-                                    visited[nIdx] = 1;
-                                    queue[qTail++] = nIdx;
-                                }
-                            }
-                        }
-                        
-                        const size = qTail;
-                        const avgScore = sumScore / size;
-                        
-                        // Salvăm lista de coordonate asociate componentei curente
-                        const pixelIndices = new Int32Array(size);
-                        for (let i = 0; i < size; i++) {
-                            pixelIndices[i] = queue[i];
-                        }
-                        
-                        components.push({
-                            pixels: pixelIndices,
-                            size: size,
-                            avgScore: avgScore,
-                            maxScore: maxScore
-                        });
-                    }
-                }
-            }
-
-            // Pasul 3: Filtrarea formelor (eliminăm umbrele calde de bec sau zgomotul)
-            const validComponents = components.filter(c => {
-                // Eliminăm petele izolate nesemnificative
-                if (c.size < 8) return false;
-                
-                // Cerneală roșie certă (saturație foarte mare, margini definite)
-                if (c.maxScore > 45 && c.avgScore > 20) {
-                    return true;
-                }
-                
-                // Eliminăm umbrele difuze mari care au scor mediu și maxim foarte scăzut
-                if (c.maxScore < 25) {
-                    return false;
-                }
-                
-                // Filtru pentru umbre persistente (suprafață mare, contrast de cerneală slab)
-                if (c.size > 300 && c.avgScore < 15) {
-                    return false;
-                }
-                
-                // Păstrăm elementele de dimensiuni mici și medii dar cu consistență bună
-                return c.avgScore >= 12;
-            });
-
-            // Pasul 4: Randăm în stratul de ieșire doar componentele validate
-            for (let i = 0; i < validComponents.length; i++) {
-                const comp = validComponents[i];
-                for (let j = 0; j < comp.pixels.length; j++) {
-                    const pixelIdx = comp.pixels[j];
-                    const destIdx = pixelIdx * 4;
-                    
-                    outPixels[destIdx]     = tempR[pixelIdx];
-                    outPixels[destIdx + 1] = tempG[pixelIdx];
-                    outPixels[destIdx + 2] = tempB[pixelIdx];
-                    outPixels[destIdx + 3] = tempAlpha[pixelIdx];
                 }
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Aplicăm blending MULTIPLY pentru desenul curat
+            // Pasul 2: Suprapunem desenul curat pe Cartea 2 folosind blending Multiply
+            // Albul devine neutru, păstrând doar desenul roșu cu margini netezite nativ
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
             ctx.globalCompositeOperation = 'source-over';

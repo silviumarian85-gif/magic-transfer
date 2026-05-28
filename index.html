@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 23
+            Versiune 24
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 23
+            Versiune 24
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -360,6 +360,16 @@
     <span class="close-tip">Click pe imagine pentru Zoom 100% | Click pe fundal sau ESC pentru închidere</span>
     <img id="imgFullscreen" src="" alt="Analiză imagine la rezoluție maximă">
 </div>
+
+<!-- FILTRU ȘI MASCĂ SVG PENTRU EROZIUNE DE 2PX (MASCARE MARGINI) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; pointer-events: none; overflow: hidden;">
+    <defs>
+        <filter id="mascaEroziune">
+            <!-- feMorphology operator="erode" cu radius="2" elimină exact 2px de pe marginea exterioară a desenului sustras -->
+            <feMorphology operator="erode" radius="2" in="SourceGraphic" result="eroded" />
+        </filter>
+    </defs>
+</svg>
 
 <script>
     const incarcaDesen = document.getElementById('incarcaDesen');
@@ -1417,8 +1427,10 @@
                 }
             }
 
-            // --- FILTRU DE DEPARAZITARE (SPECKLE FILTER) ---
-            // Înlăturăm micile puncte de zgomot izolate care ar putea fi amplificate la blurare
+            // --- FILTRU DE DEPARAZITARE (SPECKLE FILTER) ENHANCED ---
+            // Înlăturăm micile puncte de zgomot izolate care ar putea fi amplificate la blurare.
+            // Pentru a curăța și pixelii paraziți izolați rămași la o distanță mai mare (3-5px),
+            // extindem aria de deparazitare la margini într-o fereastră extinsă 5x5.
             const tempAlpha = new Uint8Array(targetW * targetH);
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
@@ -1426,7 +1438,6 @@
                     const aVal = outPixels[idx * 4 + 3];
 
                     if (aVal > 0) {
-                        // Pentru margini, păstrăm pixelii. Pentru interior, facem verificarea morfologică de 5x5
                         if (v >= 2 && v < targetH - 2 && u >= 2 && u < targetW - 2) {
                             let veciniActivi = 0;
                             for (let dy = -2; dy <= 2; dy++) {
@@ -1436,14 +1447,15 @@
                                     }
                                 }
                             }
-                            // Dacă are mai puțin de 5 vecini dintr-un total de 25, este clasificat ca speckle (zgomot)
+                            // Prag strict: dacă un grup izolat are sub 5 pixeli activi în jur, îl considerăm zgomot și îl eliminăm complet.
                             if (veciniActivi >= 5) {
                                 tempAlpha[idx] = aVal;
                             } else {
                                 tempAlpha[idx] = 0;
                             }
                         } else {
-                            tempAlpha[idx] = aVal;
+                            // Pe marginile absolute (primii 2 pixeli), eliminăm pixelii izolați preventiv
+                            tempAlpha[idx] = 0;
                         }
                     }
                 }
@@ -1473,7 +1485,7 @@
             }
 
             // Faza 2: Al doilea pass de mediere 3x3 pe întreg canvasul + prag Smoothstep ascuțit de la 0 la margini.
-            // Acest pass complet rezolvă problema pixelilor din exterior care rămâneau anterior ne-blurați.
+            // Folosind clamping complet la margini, rezolvăm problema pixelilor de la 3-5px din exterior care rămâneau neprocesați.
             for (let v = 0; v < targetH; v++) {
                 const vm1 = Math.max(0, v - 1) * targetW;
                 const v_0 = v * targetW;
@@ -1509,13 +1521,18 @@
 
             // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit pe margini) utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
-            ctx.drawImage(tempCanvas, 0, 0);
+            
+            // Verificăm suportul pentru filtrul de mascare SVG în contextul 2D
+            if (typeof ctx.filter !== 'undefined') {
+                ctx.filter = "url(#mascaEroziune)";
+                ctx.drawImage(tempCanvas, 0, 0);
+                ctx.filter = "none";
+            } else {
+                ctx.drawImage(tempCanvas, 0, 0);
+            }
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
-
-            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
-            butonTransfer.disabled = false;
 
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
             if (window.innerWidth <= 768) {

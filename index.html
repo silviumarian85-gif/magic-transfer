@@ -1454,9 +1454,13 @@
                         const maxGB = Math.max(g, b);
                         const diferentaRosu = r - maxGB;
 
-                        // Filtru de albire a non-culorilor:
-                        // Dacă pixelul nu este un roșu proeminent (e negru, gri, umbră de fundal sau hârtie albă)
-                        if (diferentaRosu < pragSensibilitate) {
+                        // Condiție cromatică suplimentară pentru identificarea nuanțelor de galben/verde/galben-verzui.
+                        // În spectrul cald, canalul verde (Green) are o pondere ridicată în raport cu canalul roșu (Red).
+                        const esteGalbenVerde = (g > r * 0.72);
+
+                        // Filtru de albire a non-culorilor și a nuanțelor galben/verde care reprezintă umbre:
+                        // Dacă pixelul nu este un roșu proeminent (e negru, gri, umbră de fundal, hârtie sau este galben/verde)
+                        if (diferentaRosu < pragSensibilitate || esteGalbenVerde) {
                             // Îl convertim la alb pur opac
                             outPixels[destIdx]     = 255;
                             outPixels[destIdx + 1] = 255;

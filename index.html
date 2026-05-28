@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 25
+            Versiune 26
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 25
+            Versiune 26
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -654,7 +654,7 @@
             return { puncte: defaultPoints(), succes: false };
         }
         
-        // --- METODĂ STATISTICĂ ROBUSTĂ FILTRATĂ PENTRU DETECȚIE COLȚURI ---
+        // --- METODĂ STATISTICĂ ROBUSTĂ FILTRATĂ PENTREN DETECȚIE COLȚURI ---
         let sumX = 0, sumY = 0;
         const count = puncteCard.length;
         for (let i = 0; i < count; i++) {
@@ -1114,8 +1114,8 @@
 
     btnResetPuncte.addEventListener('click', () => {
         if (!imgDesen) return;
-        const rezultat = detecteazaColturiCarte(imgDesen);
-        puncteSelectate = rezultat.puncte;
+        const PaintResult = detecteazaColturiCarte(imgDesen);
+        puncteSelectate = PaintResult.puncte;
         randeazaSelectie();
     });
 
@@ -1506,39 +1506,14 @@
                 }
             }
 
-            // --- MASCARE ȘI EROZIUNE DE 2PX REZISTENTĂ (Echivalentul perfect de feMorphology operator="erode" radius="2") ---
-            // Netezim și tăiem exact 2px din conturul rotunjit al desenului. 
-            // Această operațiune locală pe pixeli garantează o mascare stabilă pe absolut orice browser/dispozitiv mobil.
-            const erodedAlpha = new Uint8Array(targetW * targetH);
-            for (let v = 0; v < targetH; v++) {
-                for (let u = 0; u < targetW; u++) {
-                    const idx = v * targetW + u;
-                    
-                    // Calculăm valoarea minimă a Alpha în vecinătatea extinsă de 5x5 (rază de exact 2px)
-                    let minAlpha = 255;
-                    for (let dy = -2; dy <= 2; dy++) {
-                        const nv = Math.max(0, Math.min(targetH - 1, v + dy));
-                        const nv_offset = nv * targetW;
-                        for (let dx = -2; dx <= 2; dx++) {
-                            const nu = Math.max(0, Math.min(targetW - 1, u + dx));
-                            const val = roundedAlpha[nv_offset + nu];
-                            if (val < minAlpha) {
-                                minAlpha = val;
-                            }
-                        }
-                    }
-                    erodedAlpha[idx] = minAlpha;
-                }
-            }
-
-            // Transferăm valorile de transparență calculate în matricea finală a imaginii
+            // Scriem transparența rotunjită direct în imaginea desenului
             for (let i = 0; i < targetW * targetH; i++) {
-                outPixels[i * 4 + 3] = erodedAlpha[i];
+                outPixels[i * 4 + 3] = roundedAlpha[i];
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit și mascat) utilizând modul de blending MULTIPLY
+            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit pe margini) utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 

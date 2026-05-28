@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 26
+            Versiune 27
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 26
+            Versiune 27
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -654,7 +654,7 @@
             return { puncte: defaultPoints(), succes: false };
         }
         
-        // --- METODĂ STATISTICĂ ROBUSTĂ FILTRATĂ PENTREN DETECȚIE COLȚURI ---
+        // --- METODĂ STATISTICĂ ROBUSTĂ FILTRATĂ PENTRU DETECȚIE COLȚURI ---
         let sumX = 0, sumY = 0;
         const count = puncteCard.length;
         for (let i = 0; i < count; i++) {
@@ -1303,11 +1303,6 @@
 
             const zonaTranzitie = Math.max(3, Math.min(15, pragSensibilitate * 0.3));
 
-            // Culorile de siguranță pentru propagare dinamică (previn apariția pixelilor negri pe margini - "fringe")
-            let lastValidR = 215;
-            let lastValidG = 15;
-            let lastValidB = 30;
-
             for (let v = 0; v < targetH; v++) {
                 for (let u = 0; u < targetW; u++) {
                     const destIdx = (v * targetW + u) * 4;
@@ -1396,20 +1391,12 @@
                                     finalB = Math.max(0, Math.min(255, finalB));
                                 }
 
-                                lastValidR = finalR;
-                                lastValidG = finalG;
-                                lastValidB = finalB;
-
                                 outPixels[destIdx]     = Math.round(finalR);
                                 outPixels[destIdx + 1] = Math.round(finalG);
                                 outPixels[destIdx + 2] = Math.round(finalB);
                                 outPixels[destIdx + 3] = alpha;
                             } else {
-                                // Umplem canalele RGB chiar și acolo unde alpha este inițial 0 cu ultima culoare validă.
-                                // Acest padding cromatic elimină "pixelii negri" de pe margine la momentul estompării.
-                                outPixels[destIdx]     = Math.round(lastValidR);
-                                outPixels[destIdx + 1] = Math.round(lastValidG);
-                                outPixels[destIdx + 2] = Math.round(lastValidB);
+                                // Pixel complet transparent
                                 outPixels[destIdx + 3] = 0;
                             }
                         }
@@ -1417,103 +1404,9 @@
                 }
             }
 
-            // --- FILTRU DE DEPARAZITARE (SPECKLE FILTER) ENHANCED ---
-            // Înlăturăm micile puncte de zgomot izolate care ar putea fi amplificate la blurare.
-            // Pentru a curăța și pixelii paraziți izolați rămași la o distanță mai mare (3-5px),
-            // extindem aria de deparazitare la margini într-o fereastră extinsă 5x5.
-            const tempAlpha = new Uint8Array(targetW * targetH);
-            for (let v = 0; v < targetH; v++) {
-                for (let u = 0; u < targetW; u++) {
-                    const idx = v * targetW + u;
-                    const aVal = outPixels[idx * 4 + 3];
-
-                    if (aVal > 0) {
-                        if (v >= 2 && v < targetH - 2 && u >= 2 && u < targetW - 2) {
-                            let veciniActivi = 0;
-                            for (let dy = -2; dy <= 2; dy++) {
-                                for (let dx = -2; dx <= 2; dx++) {
-                                    if (outPixels[(idx + dy * targetW + dx) * 4 + 3] > 0) {
-                                        veciniActivi++;
-                                    }
-                                }
-                            }
-                            // Prag strict: dacă un grup izolat are sub 5 pixeli activi în jur, îl considerăm zgomot și îl eliminăm complet.
-                            if (veciniActivi >= 5) {
-                                tempAlpha[idx] = aVal;
-                            } else {
-                                tempAlpha[idx] = 0;
-                            }
-                        } else {
-                            // Pe marginile absolute (primii 2 pixeli), eliminăm pixelii izolați preventiv
-                            tempAlpha[idx] = 0;
-                        }
-                    }
-                }
-            }
-
-            // --- PASUL DE SMOOTH PIXELS (NETEZIRE ȘI ROTUNJIRE GEOMETRICĂ COMPLETA) ---
-            // Faza 1: Primul box blur 3x3 pe o matrice temporară (cu limitare numerică safe pe toate marginile)
-            const alpha1 = new Uint8Array(targetW * targetH);
-            for (let v = 0; v < targetH; v++) {
-                const vm1 = Math.max(0, v - 1) * targetW;
-                const v_0 = v * targetW;
-                const vp1 = Math.min(targetH - 1, v + 1) * targetW;
-
-                for (let u = 0; u < targetW; u++) {
-                    const um1 = Math.max(0, u - 1);
-                    const u_0 = u;
-                    const up1 = Math.min(targetW - 1, u + 1);
-
-                    const idx = v_0 + u_0;
-
-                    const sum = tempAlpha[vm1 + um1] + tempAlpha[vm1 + u_0] + tempAlpha[vm1 + up1] +
-                                tempAlpha[v_0 + um1] + tempAlpha[v_0 + u_0] + tempAlpha[v_0 + up1] +
-                                tempAlpha[vp1 + um1] + tempAlpha[vp1 + u_0] + tempAlpha[vp1 + up1];
-
-                    alpha1[idx] = Math.round(sum / 9);
-                }
-            }
-
-            // Faza 2: Al doilea pass de mediere 3x3 pe întreg canvasul + prag Smoothstep ascuțit de la 0 la margini.
-            const roundedAlpha = new Uint8Array(targetW * targetH);
-            for (let v = 0; v < targetH; v++) {
-                const vm1 = Math.max(0, v - 1) * targetW;
-                const v_0 = v * targetW;
-                const vp1 = Math.min(targetH - 1, v + 1) * targetW;
-
-                for (let u = 0; u < targetW; u++) {
-                    const um1 = Math.max(0, u - 1);
-                    const u_0 = u;
-                    const up1 = Math.min(targetW - 1, u + 1);
-
-                    const idx = v_0 + u_0;
-
-                    const sum = alpha1[vm1 + um1] + alpha1[vm1 + u_0] + alpha1[vm1 + up1] +
-                                alpha1[v_0 + um1] + alpha1[v_0 + u_0] + alpha1[v_0 + up1] +
-                                alpha1[vp1 + um1] + alpha1[vp1 + u_0] + alpha1[vp1 + up1];
-
-                    const blurredVal = sum / 9;
-                    const l = blurredVal / 255;
-                    let nouAlpha = 0;
-
-                    if (l > 0.30) {
-                        // Reconstruim conturul fluid prin curbă Smoothstep
-                        const t = Math.min(1.0, Math.max(0.0, (l - 0.30) / 0.15));
-                        const smoothT = t * t * (3.0 - 2.0 * t);
-                        nouAlpha = Math.round(smoothT * 255);
-                    }
-                    roundedAlpha[idx] = nouAlpha;
-                }
-            }
-
-            // Scriem transparența rotunjită direct în imaginea desenului
-            for (let i = 0; i < targetW * targetH; i++) {
-                outPixels[i * 4 + 3] = roundedAlpha[i];
-            }
-
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit pe margini) utilizând modul de blending MULTIPLY
+            // Pasul 3: Aplicăm desenul sustras utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
             ctx.drawImage(tempCanvas, 0, 0);
 

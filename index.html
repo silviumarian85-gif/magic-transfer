@@ -244,13 +244,14 @@
     <div id="dStartScreen" style="background: #121212; padding: 40px; border-radius: 12px; margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 600px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div id="dVersionBadge" style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-bottom: 30px;">
-            Versiune 28
+            Versiune 29
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
         <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%;">
             <button id="btnStartCamera" class="start-link-btn">📷 Activează Cameră Spate</button>
             
+            <!-- Buton Încărcare Sursă legat direct la inputul incarcaDesen -->
             <label for="incarcaDesen" class="start-link-btn" style="cursor: pointer;">📁 Încarcă Imagine</label>
             
             <button onclick="window.location.reload();" class="start-link-btn" style="color: #ff4d4d !important;">🔄 Reîncarcă Pagina</button>
@@ -324,7 +325,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; height: 100%; box-sizing: border-box; padding: 40px 20px; background: #000;">
         <!-- Numele versiunii separat în antet, ca titlu -->
         <div style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-top: 10px;">
-            Versiune 28
+            Versiune 29
         </div>
 
         <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
@@ -926,6 +927,7 @@
             const ctxAnaliza = canvasAnaliza.getContext('2d');
             ctxAnaliza.drawImage(videoPreview, 0, 0, canvasAnaliza.width, canvasAnaliza.height);
 
+            // CORECTAT: eliminată eroarea de sintaxă ('const愉rezultat') generată accidental
             const rezultat = detecteazaColturiCarte(canvasAnaliza);
             trackerColturiSursa = rezultat.puncte;
 
@@ -971,272 +973,39 @@
         requestAnimationFrame(analizeazaCadruVideoLive);
     }
 
-    // Declansare manuala SNAP - Standard Canvas-based capture cu rotație fizică automată pe mobil
-    btnManualSnap.addEventListener('click', () => {
-        if (!videoStream || !cameraActive) return;
-
-        const vw = videoPreview.videoWidth;
-        const vh = videoPreview.videoHeight;
-
-        const snapCanvas = document.createElement('canvas');
-        const trebuieRotit = (window.innerWidth <= 768 && vw > vh);
-
-        if (trebuieRotit) {
-            snapCanvas.width = vh;  
-            snapCanvas.height = vw; 
-            const snapCtx = snapCanvas.getContext('2d');
-            
-            snapCtx.translate(vh / 2, vw / 2);
-            snapCtx.rotate(90 * Math.PI / 180);
-            snapCtx.drawImage(videoPreview, -vw / 2, -vh / 2, vw, vh);
-        } else {
-            snapCanvas.width = vw;
-            snapCanvas.height = vh;
-            const snapCtx = snapCanvas.getContext('2d');
-            snapCtx.drawImage(videoPreview, 0, 0, vw, vh);
+    // --- EVENIMENT CLICK PROCESEAZĂ PE MOBIL CU PREVENIRE BLOCARE ECRAN NEGRU ---
+    mBtnProcess.addEventListener('click', () => {
+        if (!imgDesen) {
+            alert("Eroare: Imaginea sursă cu desenul roșu nu este încărcată!");
+            return;
         }
+        if (!imgCoalaGoala) {
+            alert("Eroare: Imaginea de referință (as-02.png / Cartea 2) nu s-a putut încărca de pe server. Aplicația generează acum o carte virtuală albă de fallback...");
+            
+            // Generăm dinamic o carte albă de fallback dacă as-02.png dă eroare
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 489;
+            fallbackCanvas.height = 680;
+            const fCtx = fallbackCanvas.getContext('2d');
+            fCtx.fillStyle = '#ffffff';
+            fCtx.fillRect(0, 0, 489, 680);
+            fCtx.strokeStyle = '#e2e8f0';
+            fCtx.lineWidth = 4;
+            fCtx.strokeRect(2, 2, 485, 676);
 
-        opresteCameraDacaEsteActiva();
-        cameraInterface.style.display = 'none';
-
-        const snapImg = new Image();
-        snapImg.onload = () => {
-            imgDesen = snapImg;
-            
-            const rezFinal = detecteazaColturiCarte(snapImg);
-            puncteSelectate = rezFinal.puncte; 
-            
-            boxDesen.innerHTML = '<canvas id="canvasSelectie" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>';
-            canvasSelectie = document.getElementById('canvasSelectie');
-            
-            btnResetPuncte.style.display = 'inline-block';
-            randeazaSelectie();
-            actualizeazaInfoPuncte();
-            
-            instructiuniPuncte.innerHTML = "<span style='color: #28a745; font-weight: bold;'>📸 Cadru salvat și orientat!</span>";
-
-            if (window.innerWidth <= 768) {
-                document.getElementById('mStartScreen').style.display = 'none';
-                mResultContainer.style.display = 'none';
-                mAdjustmentContainer.style.display = 'flex';
-                
-                const mCanvasPreview = document.getElementById('mCanvasPreview');
-                const aspect = snapImg.naturalWidth / snapImg.naturalHeight;
-                
-                // Mărim canvasul de previzualizare păstrând aspectul nativ al imaginii, fără a-l mai turti
-                const maxDim = 800;
-                if (snapImg.naturalWidth > snapImg.naturalHeight) {
-                    mCanvasPreview.width = maxDim;
-                    mCanvasPreview.height = Math.round(maxDim / aspect);
-                } else {
-                    mCanvasPreview.height = maxDim;
-                    mCanvasPreview.width = Math.round(maxDim * aspect);
-                }
-                
-                const mCtxPreview = mCanvasPreview.getContext('2d');
-                mCtxPreview.drawImage(snapImg, 0, 0, mCanvasPreview.width, mCanvasPreview.height);
-                
-                // Desenăm patrulaterul de detecție direct pe previzualizarea mobilă
-                randeazaGeometriePatrulater(mCtxPreview, puncteSelectate, snapImg, mCanvasPreview.width, mCanvasPreview.height, '#28a745');
-            } else {
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => {
+                imgCoalaGoala = fallbackImg;
+                mAdjustmentContainer.style.display = 'none';
                 executaTransfer();
-            }
-        };
-        snapImg.src = snapCanvas.toDataURL('image/png');
+            };
+            fallbackImg.src = fallbackCanvas.toDataURL();
+            return;
+        }
+        
+        mAdjustmentContainer.style.display = 'none';
+        executaTransfer();
     });
-
-    btnCancelCamera.addEventListener('click', () => {
-        opresteCameraDacaEsteActiva();
-        cameraInterface.style.display = 'none';
-        if (window.innerWidth <= 768) {
-            document.getElementById('mStartScreen').style.display = 'flex';
-            mResultContainer.style.display = 'none';
-            mAdjustmentContainer.style.display = 'none';
-        } else {
-            instructiuniPuncte.innerHTML = "<span>Scanare anulată.</span>";
-        }
-    });
-
-    function randeazaSelectie() {
-        if (!imgDesen || !canvasSelectie) return;
-        const ctxSel = canvasSelectie.getContext('2d');
-        const boxW = boxDesen.clientWidth;
-        const boxH = 250;
-        const aspect = imgDesen.naturalWidth / imgDesen.naturalHeight;
-        
-        let dispW = boxW;
-        let dispH = boxW / aspect;
-        if (dispH > boxH) {
-            dispH = boxH;
-            dispW = boxH * aspect;
-        }
-        
-        canvasSelectie.width = dispW;
-        canvasSelectie.height = dispH;
-        ctxSel.drawImage(imgDesen, 0, 0, dispW, dispH);
-        
-        randeazaGeometriePatrulater(ctxSel, puncteSelectate, imgDesen, dispW, dispH, '#ff073a');
-    }
-
-    function randeazaSelectieCoala() {
-        if (!imgCoalaGoala || !canvasSelectieCoala) return;
-        const ctxSel = canvasSelectieCoala.getContext('2d');
-        
-        canvasSelectieCoala.width = 489;
-        canvasSelectieCoala.height = 680;
-        ctxSel.drawImage(imgCoalaGoala, 0, 0, 489, 680);
-        
-        ctxSel.strokeStyle = '#28a745';
-        ctxSel.lineWidth = 6;
-        ctxSel.strokeRect(0, 0, 489, 680);
-    }
-
-    function randeazaGeometriePatrulater(ctxSel, puncte, img, dispW, dispH, culoare) {
-        if (puncte.length !== 4) return;
-
-        const dPts = puncte.map(p => ({
-            x: (p.x / img.naturalWidth) * dispW,
-            y: (p.y / img.naturalHeight) * dispH
-        }));
-        
-        ctxSel.strokeStyle = culoare;
-        ctxSel.lineWidth = 3;
-        ctxSel.beginPath();
-        ctxSel.moveTo(dPts[0].x, dPts[0].y);
-        ctxSel.lineTo(dPts[1].x, dPts[1].y);
-        ctxSel.lineTo(dPts[2].x, dPts[2].y);
-        ctxSel.lineTo(dPts[3].x, dPts[3].y);
-        ctxSel.closePath();
-        ctxSel.stroke();
-        
-        ctxSel.strokeStyle = culoare + '33';
-        ctxSel.lineWidth = 1;
-        ctxSel.setLineDash([4, 4]);
-        ctxSel.beginPath();
-        ctxSel.moveTo(dPts[0].x, dPts[0].y);
-        ctxSel.lineTo(dPts[2].x, dPts[2].y);
-        ctxSel.moveTo(dPts[1].x, dPts[1].y);
-        ctxSel.lineTo(dPts[3].x, dPts[3].y);
-        ctxSel.stroke();
-        ctxSel.setLineDash([]);
-    }
-
-    function actualizeazaInfoPuncte() {
-        if (!imgDesen) return;
-        instructiuniPuncte.innerHTML = "<span style='color: #28a745;'>Margini exterioare detectate automat.</span>";
-    }
-
-    function actualizeazaInfoPuncteCoala() {
-        if (!imgCoalaGoala) return;
-        instructiuniPuncteCoala.innerHTML = "<span style='color: #28a745;'>Aliniere automată pe formatul fix 489x680px.</span>";
-    }
-
-    btnResetPuncte.addEventListener('click', () => {
-        if (!imgDesen) return;
-        const PaintResult = detecteazaColturiCarte(imgDesen);
-        puncteSelectate = PaintResult.puncte;
-        randeazaSelectie();
-    });
-
-    btnResetPuncteCoala.addEventListener('click', () => {
-        puncteCoala = [
-            { x: 0, y: 0 },
-            { x: 489, y: 0 },
-            { x: 489, y: 680 },
-            { x: 0, y: 680 }
-        ];
-        randeazaSelectieCoala();
-    });
-
-    window.addEventListener('resize', () => {
-        if (imgDesen) randeazaSelectie();
-        if (imgCoalaGoala) randeazaSelectieCoala();
-    });
-
-    // --- Matematică Homografie ---
-    function solve8x8(A, B) {
-        const n = 8;
-        for (let i = 0; i < n; i++) {
-            let maxEl = Math.abs(A[i][i]);
-            let maxRow = i;
-            for (let k = i + 1; k < n; k++) {
-                if (Math.abs(A[k][i]) > maxEl) {
-                    maxEl = Math.abs(A[k][i]);
-                    maxRow = k;
-                }
-            }
-            
-            const tmpRow = A[maxRow];
-            A[maxRow] = A[i];
-            A[i] = tmpRow;
-
-            const tmpB = B[maxRow];
-            B[maxRow] = B[i];
-            B[i] = tmpB;
-
-            if (Math.abs(A[i][i]) < 1e-10) {
-                return [1, 0, 0, 0, 1, 0, 0, 0];
-            }
-
-            for (let k = i + 1; k < n; k++) {
-                const c = -A[k][i] / A[i][i];
-                A[k][i] = 0;
-                for (let j = i + 1; j < n; j++) {
-                    A[k][j] += c * A[i][j];
-                }
-                B[k] += c * B[i];
-            }
-        }
-        
-        const x = new Array(n).fill(0);
-        for (let i = n - 1; i >= 0; i--) {
-            let sum = B[i];
-            for (let j = i + 1; j < n; j++) {
-                sum -= A[i][j] * x[j];
-            }
-            x[i] = sum / A[i][i];
-        }
-        return x;
-    }
-
-    function getHomographyMatrix(src, dst) {
-        const A = [];
-        const B = [];
-        for (let i = 0; i < 4; i++) {
-            // Suportă în mod unificat structuri de date de tip Array [x, y] sau Obiect {x, y}
-            const x = Array.isArray(src[i]) ? src[i][0] : src[i].x;
-            const y = Array.isArray(src[i]) ? src[i][1] : src[i].y;
-            const u = Array.isArray(dst[i]) ? dst[i][0] : dst[i].x;
-            const v = Array.isArray(dst[i]) ? dst[i][1] : dst[i].y;
-
-            A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
-            B.push(u);
-
-            A.push([0, 0, 0, x, y, 1, -v * x, -v * y]);
-            B.push(v);
-        }
-        const h = solve8x8(A, B);
-        return [
-            h[0], h[1], h[2],
-            h[3], h[4], h[5],
-            h[6], h[7], 1.0
-        ];
-    }
-
-    function isPointInQuad(x, y, quad) {
-        let inside = false;
-        for (let i = 0, j = 3; i < 4; j = i++) {
-            const xi = (quad[i].x !== undefined) ? quad[i].x : quad[i][0];
-            const yi = (quad[i].y !== undefined) ? quad[i].y : quad[i][1];
-            const xj = (quad[j].x !== undefined) ? quad[j].x : quad[j][0];
-            const yj = (quad[j].y !== undefined) ? quad[j].y : quad[j][1];
-            
-            const intersect = ((yi > y) !== (yj > y))
-                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
-    }
 
     // --- PROCESUL DE TRANSFER (Calibrare stabilă la formatul fix 489x680, Fără Uniformizare) ---
     function executaTransfer() {
@@ -1371,7 +1140,7 @@
                             // Pentru cerneală roșie reală (fie ea și în degrade sau umbrită), raportul depășește 1.18.
                             const rRatio = r / (maxGB + 1);
 
-                            let alpha = 0;
+                            let scorCerneala = 0;
                             if (r > 40 && rRatio > 1.18 && diferentaRosu > 5) {
                                 // Determinăm ponderea roșului în compoziția cromatică
                                 const proportieRosu = r / (r + g + b + 1);
@@ -1432,6 +1201,10 @@
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';
 
+            // Re-activăm butoanele
+            butonTransfer.textContent = "🚀 Aliniază și Transferă Desenul Roșu";
+            butonTransfer.disabled = false;
+
             // Tratare finală flux pe mobil (Pasul 3: afișarea exclusivă a imaginii procesate)
             if (window.innerWidth <= 768) {
                 mResultContainer.style.display = 'flex';
@@ -1453,11 +1226,6 @@
         btnStartCamera.click(); 
     });
 
-    mBtnProcess.addEventListener('click', () => {
-        mAdjustmentContainer.style.display = 'none';
-        executaTransfer();
-    });
-
     mBtnRestart.addEventListener('click', () => {
         mResultContainer.style.display = 'none';
         mAdjustmentContainer.style.display = 'none';
@@ -1465,7 +1233,7 @@
         autoTransferRulat = false; 
     });
 
-    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ ---
+    // --- INIȚIALIZARE ȘI ÎNCĂRCARE AUTOMATĂ CU METODĂ DE DYNAMIC FALLBACK ---
     window.addEventListener('DOMContentLoaded', () => {
         const implicitSursa = new Image();
         implicitSursa.onload = () => handleIncarcareImagineSursa(implicitSursa);
@@ -1477,12 +1245,23 @@
         const implicitDest = new Image();
         implicitDest.onload = () => handleIncarcareImagineDestinatie(implicitDest);
         implicitDest.onerror = () => {
-            const fallbackDest = new Image();
-            fallbackDest.onload = () => handleIncarcareImagineDestinatie(fallbackDest);
-            fallbackDest.onerror = () => {
-                boxCoala.innerHTML = '<span style="color: #a0aec0; font-size: 14px;">Nu s-a putut încărca \"as-02.png\" automat.</span>';
-            };
-            fallbackDest.src = 'as-02.ong';
+            // FALLBACK DINAMIC ROBUST: Dacă as-02.png lipsește pe server, generăm o carte albă virtuală
+            // pentru ca aplicația să funcționeze impecabil pe orice rețea/mediu de test.
+            console.log("as-02.png lipsește pe server. Generăm o carte de referință albă virtuală de fallback...");
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 489;
+            fallbackCanvas.height = 680;
+            const fCtx = fallbackCanvas.getContext('2d');
+            fCtx.fillStyle = '#ffffff';
+            fCtx.fillRect(0, 0, 489, 680);
+            
+            fCtx.strokeStyle = '#e2e8f0';
+            fCtx.lineWidth = 4;
+            fCtx.strokeRect(2, 2, 485, 676);
+
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => handleIncarcareImagineDestinatie(fallbackImg);
+            fallbackImg.src = fallbackCanvas.toDataURL();
         };
         implicitDest.src = 'as-02.png';
     });

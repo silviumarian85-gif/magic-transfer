@@ -228,7 +228,7 @@
     <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
         <!-- Badge Iteratie PC: Afișare mare și clară -->
         <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 24
+            Versiune 25
         </div>
 
         <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -308,7 +308,7 @@
     <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <!-- Badge Iteratie Mobil -->
         <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 24
+            Versiune 25
         </div>
 
         <!-- Buton de Pornire Cameră Mobil -->
@@ -360,16 +360,6 @@
     <span class="close-tip">Click pe imagine pentru Zoom 100% | Click pe fundal sau ESC pentru închidere</span>
     <img id="imgFullscreen" src="" alt="Analiză imagine la rezoluție maximă">
 </div>
-
-<!-- FILTRU ȘI MASCĂ SVG PENTRU EROZIUNE DE 2PX (MASCARE MARGINI) -->
-<svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; pointer-events: none; overflow: hidden;">
-    <defs>
-        <filter id="mascaEroziune">
-            <!-- feMorphology operator="erode" cu radius="2" elimină exact 2px de pe marginea exterioară a desenului sustras -->
-            <feMorphology operator="erode" radius="2" in="SourceGraphic" result="eroded" />
-        </filter>
-    </defs>
-</svg>
 
 <script>
     const incarcaDesen = document.getElementById('incarcaDesen');
@@ -1461,7 +1451,7 @@
                 }
             }
 
-            // --- PASUL DE SMOOTH PIXELS (NETEZIRE ȘI ROTUNJIRE GEOMETRICĂ COMPLETĂ DE TIP CLAMPING) ---
+            // --- PASUL DE SMOOTH PIXELS (NETEZIRE ȘI ROTUNJIRE GEOMETRICĂ COMPLETA) ---
             // Faza 1: Primul box blur 3x3 pe o matrice temporară (cu limitare numerică safe pe toate marginile)
             const alpha1 = new Uint8Array(targetW * targetH);
             for (let v = 0; v < targetH; v++) {
@@ -1485,7 +1475,7 @@
             }
 
             // Faza 2: Al doilea pass de mediere 3x3 pe întreg canvasul + prag Smoothstep ascuțit de la 0 la margini.
-            // Folosind clamping complet la margini, rezolvăm problema pixelilor de la 3-5px din exterior care rămâneau neprocesați.
+            const roundedAlpha = new Uint8Array(targetW * targetH);
             for (let v = 0; v < targetH; v++) {
                 const vm1 = Math.max(0, v - 1) * targetW;
                 const v_0 = v * targetW;
@@ -1497,7 +1487,6 @@
                     const up1 = Math.min(targetW - 1, u + 1);
 
                     const idx = v_0 + u_0;
-                    const destIdx = idx * 4;
 
                     const sum = alpha1[vm1 + um1] + alpha1[vm1 + u_0] + alpha1[vm1 + up1] +
                                 alpha1[v_0 + um1] + alpha1[v_0 + u_0] + alpha1[v_0 + up1] +
@@ -1513,23 +1502,45 @@
                         const smoothT = t * t * (3.0 - 2.0 * t);
                         nouAlpha = Math.round(smoothT * 255);
                     }
-                    outPixels[destIdx + 3] = nouAlpha;
+                    roundedAlpha[idx] = nouAlpha;
                 }
+            }
+
+            // --- MASCARE ȘI EROZIUNE DE 2PX REZISTENTĂ (Echivalentul perfect de feMorphology operator="erode" radius="2") ---
+            // Netezim și tăiem exact 2px din conturul rotunjit al desenului. 
+            // Această operațiune locală pe pixeli garantează o mascare stabilă pe absolut orice browser/dispozitiv mobil.
+            const erodedAlpha = new Uint8Array(targetW * targetH);
+            for (let v = 0; v < targetH; v++) {
+                for (let u = 0; u < targetW; u++) {
+                    const idx = v * targetW + u;
+                    
+                    // Calculăm valoarea minimă a Alpha în vecinătatea extinsă de 5x5 (rază de exact 2px)
+                    let minAlpha = 255;
+                    for (let dy = -2; dy <= 2; dy++) {
+                        const nv = Math.max(0, Math.min(targetH - 1, v + dy));
+                        const nv_offset = nv * targetW;
+                        for (let dx = -2; dx <= 2; dx++) {
+                            const nu = Math.max(0, Math.min(targetW - 1, u + dx));
+                            const val = roundedAlpha[nv_offset + nu];
+                            if (val < minAlpha) {
+                                minAlpha = val;
+                            }
+                        }
+                    }
+                    erodedAlpha[idx] = minAlpha;
+                }
+            }
+
+            // Transferăm valorile de transparență calculate în matricea finală a imaginii
+            for (let i = 0; i < targetW * targetH; i++) {
+                outPixels[i * 4 + 3] = erodedAlpha[i];
             }
 
             tempCtx.putImageData(imgDataDesen, 0, 0);
 
-            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit pe margini) utilizând modul de blending MULTIPLY
+            // Pasul 3: Aplicăm desenul sustras (acum complet rotunjit și mascat) utilizând modul de blending MULTIPLY
             ctx.globalCompositeOperation = 'multiply';
-            
-            // Verificăm suportul pentru filtrul de mascare SVG în contextul 2D
-            if (typeof ctx.filter !== 'undefined') {
-                ctx.filter = "url(#mascaEroziune)";
-                ctx.drawImage(tempCanvas, 0, 0);
-                ctx.filter = "none";
-            } else {
-                ctx.drawImage(tempCanvas, 0, 0);
-            }
+            ctx.drawImage(tempCanvas, 0, 0);
 
             // Resetăm modul de compoziție la cel standard
             ctx.globalCompositeOperation = 'source-over';

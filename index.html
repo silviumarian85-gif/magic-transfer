@@ -68,6 +68,33 @@
 
         .close-tip { position: absolute; top: 20px; right: 20px; color: #ccc; font-size: 13px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 4px; pointer-events: none; }
 
+        /* Stil specific pentru linkurile/butoanele plate de start (fără fundal sau formă) */
+        .start-link-btn {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #ffffff !important;
+            font-size: 21px !important;
+            font-weight: 700 !important;
+            padding: 12px 25px !important;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-decoration: none;
+            transition: opacity 0.15s, transform 0.15s;
+            border-radius: 0px !important;
+            outline: none !important;
+        }
+        .start-link-btn:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+        .start-link-btn:active {
+            transform: scale(0.98);
+        }
+
         /* Containerul fluxului minimalist pe mobil */
         .mobile-flow {
             display: none;
@@ -99,17 +126,6 @@
                 box-sizing: border-box;
                 padding: 20px;
                 overflow-y: auto;
-            }
-            .btn-mobile-start {
-                background: #007bff; 
-                color: white; 
-                border: none; 
-                padding: 20px 45px; 
-                font-size: 18px; 
-                font-weight: bold; 
-                border-radius: 50px; 
-                cursor: pointer; 
-                box-shadow: 0 4px 15px rgba(0,123,255,0.4);
             }
             .m-result-container {
                 display: none;
@@ -224,20 +240,20 @@
 <div class="container">
     <h2>Aliniere Cărți de Joc - Detecție Auto & Extragere Desen Roșu (Degrade/Lumină)</h2>
     
-    <!-- Zona de Start PC centrată -->
-    <div id="dStartScreen" style="margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;">
-        <!-- Badge Iteratie PC: Afișare mare și clară -->
-        <div id="dVersionBadge" style="font-size: 22px; font-weight: 800; color: #fff; background: #e53e3e; padding: 12px 35px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4); display: inline-flex; align-items: center; border: 3px solid #fff; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 27
+    <!-- Zona de Start PC centrată pe fundal închis -->
+    <div id="dStartScreen" style="background: #121212; padding: 40px; border-radius: 12px; margin-bottom: 25px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 600px; margin-left: auto; margin-right: auto; box-sizing: border-box;">
+        <!-- Numele versiunii separat în antet, ca titlu -->
+        <div id="dVersionBadge" style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-bottom: 30px;">
+            Versiune 28
         </div>
 
-        <div style="display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap;">
-            <button id="btnStartCamera" class="btn-camera" style="padding: 15px 30px; font-size: 16px;">📷 Activează Cameră Spate</button>
+        <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%;">
+            <button id="btnStartCamera" class="start-link-btn">📷 Activează Cameră Spate</button>
             
-            <!-- Buton Încărcare Sursă legat direct la inputul incarcaDesen -->
-            <label for="incarcaDesen" class="btn-camera" style="background: #28a745; padding: 15px 30px; font-size: 16px; cursor: pointer; font-weight: 600; display: inline-block;">📁 Încarcă Imagine</label>
+            <label for="incarcaDesen" class="start-link-btn" style="cursor: pointer;">📁 Încarcă Imagine</label>
             
-            <button onclick="window.location.reload();" class="btn-upload" style="background: #dc3545; padding: 15px 30px; font-size: 16px; font-weight: 600;">🔄 Reîncarcă Pagina</button>
+            <button onclick="window.location.reload();" class="start-link-btn" style="color: #ff4d4d !important;">🔄 Reîncarcă Pagina</button>
         </div>
     </div>
 
@@ -305,21 +321,24 @@
 <!-- INTERFAȚA MINIMALISTĂ DE MOBIL (Sistem în Pași) -->
 <div class="mobile-flow">
     <!-- Pasul 1: Ecranul de start mobil centrat -->
-    <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%;">
-        <!-- Badge Iteratie Mobil -->
-        <div style="font-size: 24px; font-weight: 800; color: #fff; background: #e53e3e; padding: 14px 40px; border-radius: 50px; box-shadow: 0 4px 20px rgba(229, 62, 62, 0.5); margin-bottom: 30px; text-align: center; border: 3px solid #fff; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
-            Versiune 27
+    <div id="mStartScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; height: 100%; box-sizing: border-box; padding: 40px 20px; background: #000;">
+        <!-- Numele versiunii separat în antet, ca titlu -->
+        <div style="font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100%; padding-bottom: 15px; margin-top: 10px;">
+            Versiune 28
         </div>
 
-        <!-- Buton de Pornire Cameră Mobil -->
-        <button id="mBtnStart" class="btn-mobile-start" style="margin-bottom: 15px;">🎥 Pornește Camera</button>
-        
-        <!-- Buton Încărcare Sursă Mobil -->
-        <label for="mIncarcaDesen" class="btn-mobile-start" style="background: #28a745; margin-bottom: 15px; display: inline-block; text-align: center; line-height: normal; cursor: pointer;">📁 Încarcă Imagine</label>
-        <input type="file" id="mIncarcaDesen" accept="image/*" style="display: none;">
+        <!-- Cele 3 butoane/linkuri centrate vertical, unul sub altul, fără formă/culoare -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 25px; flex-grow: 1;">
+            <button id="mBtnStart" class="start-link-btn">🎥 Pornește Camera</button>
+            
+            <label for="mIncarcaDesen" class="start-link-btn">📁 Încarcă Imagine</label>
+            <input type="file" id="mIncarcaDesen" accept="image/*" style="display: none;">
 
-        <!-- Buton de Refresh sub butoanele de start -->
-        <button onclick="window.location.reload();" class="btn-mobile-restart" style="margin-top: 5px; background: #dc3545; padding: 14px 35px; font-size: 16px; border-radius: 8px; width: 80%; max-width: 280px;">🔄 Reîncarcă Pagina</button>
+            <button onclick="window.location.reload();" class="start-link-btn" style="color: #ff4d4d !important;">🔄 Reîncarcă Pagina</button>
+        </div>
+
+        <!-- Spacer pentru menținerea echilibrului layout-ului space-between -->
+        <div style="height: 40px;"></div>
     </div>
     
     <!-- Pasul 2.5: Ajustare sensibilitate pe imaginea capturată înainte de procesarea finală -->
@@ -495,10 +514,10 @@
         valSaturatie.textContent = mSliderSaturatie.value;
     });
 
-    // Funcție pentru a ascunde badge-ul de versiune pe PC
+    // Funcție pentru a ascunde ecranul de start pe PC
     function ascundeVersiunePC() {
-        const badge = document.getElementById('dVersionBadge');
-        if (badge) badge.style.display = 'none';
+        const screen = document.getElementById('dStartScreen');
+        if (screen) screen.style.display = 'none';
     }
 
     // --- DETECȚIE EXCLUSIVĂ PENTRU CARTEA 1 CU METODA GEOMETRICĂ FILTRATĂ ȘI STABILĂ ---
@@ -1352,7 +1371,7 @@
                             // Pentru cerneală roșie reală (fie ea și în degrade sau umbrită), raportul depășește 1.18.
                             const rRatio = r / (maxGB + 1);
 
-                            let scorCerneala = 0;
+                            let alpha = 0;
                             if (r > 40 && rRatio > 1.18 && diferentaRosu > 5) {
                                 // Determinăm ponderea roșului în compoziția cromatică
                                 const proportieRosu = r / (r + g + b + 1);
@@ -1361,16 +1380,16 @@
                             }
 
                             // Calculăm valoarea Alpha utilizând modelul matematic S-Curve Smoothstep
-                            let alpha = 0;
+                            let alphaVal = 0;
                             if (scorCerneala > pragSensibilitate) {
                                 const t = Math.min(1.0, Math.max(0.0, (scorCerneala - pragSensibilitate) / zonaTranzitie));
                                 const smoothT = t * t * (3.0 - 2.0 * t); // Funcția Smoothstep
                                 
                                 // Aplicăm o corecție Gamma (puterea 0.8) pentru a intensifica liniile fine
-                                alpha = Math.round(Math.pow(smoothT, 0.8) * 255);
+                                alphaVal = Math.round(Math.pow(smoothT, 0.8) * 255);
                             }
 
-                            if (alpha > 0) {
+                            if (alphaVal > 0) {
                                 // --- AJUSTARE DINAMICĂ A SATURAȚIEI ---
                                 let finalR = r;
                                 let finalG = g;
@@ -1394,7 +1413,7 @@
                                 outPixels[destIdx]     = Math.round(finalR);
                                 outPixels[destIdx + 1] = Math.round(finalG);
                                 outPixels[destIdx + 2] = Math.round(finalB);
-                                outPixels[destIdx + 3] = alpha;
+                                outPixels[destIdx + 3] = alphaVal;
                             } else {
                                 // Pixel complet transparent
                                 outPixels[destIdx + 3] = 0;
